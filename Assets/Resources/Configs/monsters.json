@@ -1,0 +1,52 @@
+{
+  "items": [
+    {
+      "id": "mushroom_walker",
+      "displayName": "走路菇怪",
+      "maxHp": 20,
+      "damage": 5,
+      "moveSpeed": 1.2,
+      "aggroRange": 3.5,
+      "dropIngredientId": "walking_mushroom",
+      "dropMin": 1,
+      "dropMax": 2,
+      "colorHex": "#C8A24B"
+    },
+    {
+      "id": "slime_blob",
+      "displayName": "软糊史莱姆",
+      "maxHp": 14,
+      "damage": 4,
+      "moveSpeed": 1.0,
+      "aggroRange": 3.0,
+      "dropIngredientId": "slime_jelly",
+      "dropMin": 1,
+      "dropMax": 2,
+      "colorHex": "#7FD3C8"
+    },
+    {
+      "id": "mimic_crawler",
+      "displayName": "拟态小怪",
+      "maxHp": 35,
+      "damage": 10,
+      "moveSpeed": 1.8,
+      "aggroRange": 4.5,
+      "dropIngredientId": "mimic_meat",
+      "dropMin": 1,
+      "dropMax": 1,
+      "colorHex": "#B06AC9"
+    },
+    {
+      "id": "giant_scorpion",
+      "displayName": "巨尾蝎",
+      "maxHp": 60,
+      "damage": 16,
+      "moveSpeed": 1.5,
+      "aggroRange": 5.0,
+      "dropIngredientId": "scorpion_claw",
+      "dropMin": 1,
+      "dropMax": 1,
+      "colorHex": "#C9573F"
+    }
+  ]
+}

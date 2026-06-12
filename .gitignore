@@ -1,0 +1,38 @@
+# ===== Unity 自动生成目录（严禁入库）=====
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+
+# Unity 崩溃报告与缓存
+sysinfo.txt
+*.stackdump
+crashlytics-build.properties
+
+# IDE / 编辑器生成文件
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node（webdemo 测试无依赖，保险起见）
+node_modules/
+scripts/.charset.txt

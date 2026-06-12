@@ -1,0 +1,84 @@
+{
+  "items": [
+    {
+      "id": "walking_mushroom",
+      "displayName": "走路菇",
+      "category": "Main",
+      "flavors": [ { "tag": "土", "value": 2 }, { "tag": "鲜", "value": 1 } ],
+      "weight": 2,
+      "satietyRestore": 12,
+      "basePrice": 4,
+      "colorHex": "#C8A24B"
+    },
+    {
+      "id": "mimic_meat",
+      "displayName": "拟态怪嫩肉",
+      "category": "Main",
+      "flavors": [ { "tag": "鲜", "value": 2 }, { "tag": "脆", "value": 1 } ],
+      "weight": 3,
+      "satietyRestore": 18,
+      "basePrice": 8,
+      "colorHex": "#B06AC9"
+    },
+    {
+      "id": "scorpion_claw",
+      "displayName": "巨蝎螯肉",
+      "category": "Main",
+      "flavors": [ { "tag": "鲜", "value": 3 } ],
+      "weight": 4,
+      "satietyRestore": 22,
+      "basePrice": 14,
+      "colorHex": "#C9573F"
+    },
+    {
+      "id": "dragon_loin",
+      "displayName": "龙之里脊",
+      "category": "Main",
+      "flavors": [ { "tag": "鲜", "value": 4 }, { "tag": "辛", "value": 1 } ],
+      "weight": 6,
+      "satietyRestore": 40,
+      "basePrice": 40,
+      "colorHex": "#D94F4F"
+    },
+    {
+      "id": "dungeon_herb",
+      "displayName": "地穴香草",
+      "category": "Side",
+      "flavors": [ { "tag": "脆", "value": 1 }, { "tag": "甘", "value": 1 } ],
+      "weight": 1,
+      "satietyRestore": 5,
+      "basePrice": 2,
+      "colorHex": "#5FBF6E"
+    },
+    {
+      "id": "honey_fruit",
+      "displayName": "蜜露果",
+      "category": "Side",
+      "flavors": [ { "tag": "甘", "value": 2 } ],
+      "weight": 1,
+      "satietyRestore": 8,
+      "basePrice": 3,
+      "colorHex": "#E8C44D"
+    },
+    {
+      "id": "slime_jelly",
+      "displayName": "史莱姆凝胶",
+      "category": "Seasoning",
+      "flavors": [ { "tag": "滑", "value": 2 } ],
+      "weight": 1,
+      "satietyRestore": 6,
+      "basePrice": 3,
+      "colorHex": "#7FD3C8"
+    },
+    {
+      "id": "ember_pepper",
+      "displayName": "烬火椒",
+      "category": "Seasoning",
+      "flavors": [ { "tag": "辛", "value": 2 } ],
+      "weight": 1,
+      "satietyRestore": 4,
+      "basePrice": 6,
+      "colorHex": "#E06A3B"
+    }
+  ]
+}

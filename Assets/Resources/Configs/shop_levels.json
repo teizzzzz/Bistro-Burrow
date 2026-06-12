@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "level": 1,
+      "title": "破土开张",
+      "upgradeCost": 0,
+      "maxCustomersPerDay": 15,
+      "difficultyFactor": 1.0,
+      "stoveSlots": 2
+    },
+    {
+      "level": 2,
+      "title": "名震小镇",
+      "upgradeCost": 800,
+      "maxCustomersPerDay": 35,
+      "difficultyFactor": 1.4,
+      "stoveSlots": 3
+    },
+    {
+      "level": 3,
+      "title": "地穴巨擘",
+      "upgradeCost": 3500,
+      "maxCustomersPerDay": 70,
+      "difficultyFactor": 2.0,
+      "stoveSlots": 4
+    }
+  ]
+}

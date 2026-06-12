@@ -1,0 +1,64 @@
+{
+  "items": [
+    {
+      "id": "roasted_mushroom_skewer",
+      "displayName": "烤走路菇串",
+      "requiredFlavors": [ { "tag": "土", "value": 2 } ],
+      "price": 12,
+      "cookSeconds": 2.0,
+      "defBuff": 5,
+      "satietyBuff": 0,
+      "unlockedAtStart": true
+    },
+    {
+      "id": "herb_salad",
+      "displayName": "翠叶精灵沙拉",
+      "requiredFlavors": [ { "tag": "脆", "value": 1 }, { "tag": "甘", "value": 1 } ],
+      "price": 8,
+      "cookSeconds": 1.5,
+      "defBuff": 0,
+      "satietyBuff": 10,
+      "unlockedAtStart": true
+    },
+    {
+      "id": "mushroom_meat_pot",
+      "displayName": "地牢风味菇菇鲜肉煲",
+      "requiredFlavors": [ { "tag": "土", "value": 2 }, { "tag": "鲜", "value": 2 } ],
+      "price": 30,
+      "cookSeconds": 4.0,
+      "defBuff": 20,
+      "satietyBuff": 20,
+      "unlockedAtStart": false
+    },
+    {
+      "id": "slime_pudding",
+      "displayName": "史莱姆果冻甜点",
+      "requiredFlavors": [ { "tag": "滑", "value": 2 }, { "tag": "甘", "value": 2 } ],
+      "price": 22,
+      "cookSeconds": 3.0,
+      "defBuff": 10,
+      "satietyBuff": 10,
+      "unlockedAtStart": false
+    },
+    {
+      "id": "scorpion_soup",
+      "displayName": "巨蝎浓汤",
+      "requiredFlavors": [ { "tag": "鲜", "value": 3 }, { "tag": "滑", "value": 1 } ],
+      "price": 45,
+      "cookSeconds": 5.0,
+      "defBuff": 35,
+      "satietyBuff": 25,
+      "unlockedAtStart": false
+    },
+    {
+      "id": "dragon_steak",
+      "displayName": "龙息厚切排",
+      "requiredFlavors": [ { "tag": "鲜", "value": 4 }, { "tag": "辛", "value": 2 } ],
+      "price": 120,
+      "cookSeconds": 8.0,
+      "defBuff": 60,
+      "satietyBuff": 50,
+      "unlockedAtStart": false
+    }
+  ]
+}

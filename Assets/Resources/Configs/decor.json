@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": "wood_sign",
+      "displayName": "木质招牌",
+      "baseAttraction": 5,
+      "cost": 50,
+      "colorHex": "#8B5A2B"
+    },
+    {
+      "id": "street_bench",
+      "displayName": "临街长椅",
+      "baseAttraction": 6,
+      "cost": 90,
+      "colorHex": "#A47B4F"
+    },
+    {
+      "id": "welcome_lantern",
+      "displayName": "迎宾提灯",
+      "baseAttraction": 8,
+      "cost": 120,
+      "colorHex": "#E8A33D"
+    },
+    {
+      "id": "fairy_plant",
+      "displayName": "精灵盆栽",
+      "baseAttraction": 12,
+      "cost": 250,
+      "colorHex": "#5FBF6E"
+    }
+  ]
+}
