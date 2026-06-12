@@ -150,8 +150,10 @@ namespace BistroBurrow.Expedition
                 Juice.Pulse(m.transform, 1.15f, 0.12f); // 受击挤压感
                 if (m.TakeHit(damage, from.x))
                 {
-                    // 击杀：小震屏 + 掉落弹出
+                    // 击杀：小震屏 + 同色碎屑爆裂 + 掉落弹出
                     if (_gm.CamRig != null) Juice.Shake(_gm.CamRig.transform, 0.09f, 0.14f);
+                    Particle.Burst(transform, m.transform.position + Vector3.up * 0.3f,
+                        SpriteFactory.ParseHex(m.Def != null ? m.Def.colorHex : "#FFFFFF"));
                     SpawnDrops(m.Def, m.transform.position);
                     Destroy(m.gameObject);
                 }

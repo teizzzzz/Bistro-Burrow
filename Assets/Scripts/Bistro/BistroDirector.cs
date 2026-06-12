@@ -313,6 +313,7 @@ namespace BistroBurrow.Bistro
                 report.tips += tip;
             }
             SfxSynth.Play(SfxSynth.Id.Coin, 0.5f);
+            Particle.CoinBurst(transform, agent.transform.position + Vector3.up * 1.2f, tip > 0 ? 6 : 4);
             string text = tip > 0 ? $"+{price} (小费+{tip})" : $"+{price}";
             FloatingText.Spawn(transform, agent.transform.position + Vector3.up * 1.8f,
                 text, new Color(1f, 0.85f, 0.35f));

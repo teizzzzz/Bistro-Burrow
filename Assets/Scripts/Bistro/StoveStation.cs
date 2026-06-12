@@ -25,6 +25,7 @@ namespace BistroBurrow.Bistro
         readonly Transform _sceneRoot;
         readonly Vector2 _stovePos;
         readonly List<Transform> _slotBars = new(); // 每槽位一根进度条
+        float _steamTimer; // 烹饪蒸汽节流
 
         public StoveStation(Transform sceneRoot, Vector2 stovePos, int slots)
         {
@@ -57,6 +58,17 @@ namespace BistroBurrow.Bistro
         /// <summary>由导演每帧驱动：推进烹饪、完成即上菜、清理无效订单。</summary>
         public void Tick(float dt)
         {
+            // 有锅在烧时持续冒蒸汽（烟火气的核心来源）
+            if (_jobs.Count > 0)
+            {
+                _steamTimer -= dt;
+                if (_steamTimer <= 0f)
+                {
+                    _steamTimer = 0.32f;
+                    Particle.Steam(_sceneRoot, _stovePos + new Vector2(0f, 1.6f));
+                }
+            }
+
             for (int i = _jobs.Count - 1; i >= 0; i--)
             {
                 CookJob job = _jobs[i];

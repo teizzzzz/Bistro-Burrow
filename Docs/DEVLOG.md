@@ -2,6 +2,41 @@
 
 ---
 
+## 2026-06-13（二）· 氛围粒子 + 新手保护 + WebGL 包体实测达标
+
+### 1. 本次修改目标
+
+补白天的"烟火气"与夜战反馈（粒子三件套）；用数值驱动的新手保护抹平首两晚
+的劝退曲线；执行首次真实 WebGL 构建验证 GDD §6.3 的 25MB 包体红线。
+
+### 2. 涉及文件及职责变动
+
+- **`Util/Particle.cs`**（新增）：微型自治粒子（刻意不用 ParticleSystem——场上粒子
+  不过几十个，自驱 SpriteRenderer 更轻且零序列化资产）。三个预制配方：
+  `Steam`（灶台蒸汽，负重力上飘）/`CoinBurst`（收款金币喷溅）/`Burst`（击杀同色碎屑）。
+- **`Bistro/StoveStation.cs`**：有锅在烧时每 0.32s 冒一缕蒸汽。
+- **`Bistro/BistroDirector.cs`**：收款接金币喷溅（小费单更多）。
+- **`Expedition/ExpeditionDirector.cs`**：击杀接同色碎屑爆裂。
+- **`Configs/balance.json` + `ConfigModels.BalanceDef`**：新增 `newbieNights=2` /
+  `newbieDamageMultiplier=0.6`——前两晚受到伤害打 6 折（拟态怪 10 伤→6 伤）。
+- **`Expedition/ExpeditionPlayer.TakeDamage`** 与 **`webdemo/main.js`**：双端同步应用；
+  `webdemo/test.mjs` 新增契约断言（26 项全过）。
+- **`README.md`**：操作说明更新（主菜单/员工面板/保存）。
+
+### 3. 验证记录
+
+| 验证项 | 结果 |
+|---|---|
+| 蒸汽/金币粒子 | Play 实测可见（灶台白雾上飘；收款金点喷溅） |
+| 新手保护 | webdemo 断言：10 伤 → 6 伤 ✓ |
+| **WebGL 构建** | **总包体 6.6MB（目标 ≤25MB，仅用 26% 预算）**：wasm.br 5.2MB + data.br 1.14MB（含 185KB 中文子集字体）+ loader 0.1MB |
+| 回归 | 编译 0 错误；EditMode 17/17；webdemo 26/26 |
+
+> 注：Brotli 构建需服务器正确发送 Content-Encoding（itch.io 原生支持）；
+> 本地双击 index.html 无法直接运行属预期（decompressionFallback 已按包体优先关闭）。
+
+---
+
 ## 2026-06-13 · 开始界面 + 存档管理 + 白天员工面板
 
 ### 1. 本次修改目标

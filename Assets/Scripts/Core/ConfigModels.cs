@@ -129,6 +129,8 @@ namespace BistroBurrow.Core
         public float starveHpLossPerSecond;
         public float maxCarryWeight;            // W_max
         public int passOutLootLossPercent;
+        public int newbieNights;                // 新手保护覆盖的前 N 晚
+        public float newbieDamageMultiplier;    // 保护期内受到伤害的倍率（<1 减伤）
 
         public float patienceBaseSeconds;
         public float customerEatSeconds;

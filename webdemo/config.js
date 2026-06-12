@@ -25,6 +25,8 @@
     "starveHpLossPerSecond": 2,
     "maxCarryWeight": 30,
     "passOutLootLossPercent": 50,
+    "newbieNights": 2,
+    "newbieDamageMultiplier": 0.6,
     "patienceBaseSeconds": 22,
     "customerEatSeconds": 3,
     "baseSpawnIntervalSeconds": 6,

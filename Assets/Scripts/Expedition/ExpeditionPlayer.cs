@@ -138,6 +138,12 @@ namespace BistroBurrow.Expedition
         public void TakeDamage(float amount, Vector3 fromPos)
         {
             if (amount <= 0f) return;
+            // 新手保护（GDD 风险/回报曲线的前置缓坡）：前 N 晚受到的伤害打折，
+            // 避免没吃战前餐的新玩家被拟态怪区直接劝退。数值见 balance.json。
+            PlayerState st = GameManager.Instance != null ? GameManager.Instance.State : null;
+            if (st != null && _bal != null && st.DayIndex <= _bal.newbieNights && _bal.newbieDamageMultiplier > 0f)
+                amount *= _bal.newbieDamageMultiplier;
+
             Hp = Mathf.Max(0f, Hp - amount);
             _hurtFlash = 0.2f;
             SfxSynth.Play(SfxSynth.Id.Hurt, 0.5f);
