@@ -33,7 +33,7 @@ node webdemo/smoke.mjs   # 无头跑通完整闭环：日→昏→夜→晨
 
 ## 二、Unity 工程
 
-- **版本**：Unity **6000.0.x**（首次打开会自动还原 Library 与默认 ProjectSettings）
+- **版本**：Unity **6.3 LTS（6000.3.x）**（首次打开会自动还原 Library 与默认 ProjectSettings；其他 Unity 6 分支也可打开，勿用 2022 及更早版本）
 - **运行**：打开 `Assets/Scenes/ManagerScene.unity` → Play（即使打开空场景也能自举启动，见 `Bootstrap.cs`）
 - **WebGL 构建**：菜单 **Bistro → 构建 WebGL（Brotli 压缩）**（自动应用 GDD §6.3 指标：Brotli + High Stripping + 最低异常支持 + Gamma）
 - **EditMode 测试**：Window → General → Test Runner → EditMode → Run All（与 `webdemo/test.mjs` 同一组数值契约）
