@@ -393,7 +393,9 @@
     {
       "id": "rabbit_cook",
       "displayName": "兔耳帮厨·莉珂",
+      "shortName": "莉珂",
       "role": "Cook",
+      "look": "rabbit",
       "dailyWage": 15,
       "hireCost": 120,
       "colorHex": "#F2B8C6"
@@ -401,10 +403,22 @@
     {
       "id": "novice_adventurer",
       "displayName": "见习冒险者·加恩",
+      "shortName": "加恩",
       "role": "Gatherer",
+      "look": "adventurer",
       "dailyWage": 20,
       "hireCost": 150,
       "colorHex": "#7B9CD9"
+    },
+    {
+      "id": "veteran_gatherer",
+      "displayName": "风行猎手·薇尔",
+      "shortName": "薇尔",
+      "role": "Gatherer",
+      "look": "hunter",
+      "dailyWage": 35,
+      "hireCost": 400,
+      "colorHex": "#8FBF6B"
     }
   ],
   "shopLevels": [
