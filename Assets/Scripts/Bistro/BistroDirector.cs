@@ -43,6 +43,18 @@ namespace BistroBurrow.Bistro
         bool _open;
         bool _stage3D; // 3D 实景舞台是否在场（决定相机透视模式）
 
+        // 老板掌勺（老爹汉堡店式亲自参与）：老板站到灶台旁开火大提速，
+        // 且无雇佣帮厨时也能开火（采集员开局的老板可自己撑厨房）
+        StaffAgent _bossAgent;          // 创始伙伴实体（可能未雇佣其他人时也存在）
+        GameObject _bossChefTag;        // 灶台上方"老板掌勺中"提示
+        const float BossChefRange = 1.7f;        // 距灶台多近算掌勺
+        const float BossChefSpeedFactor = 0.55f; // 掌勺时开火间隔倍率
+
+        /// <summary>老板正站在灶台旁（亲自掌勺加成生效）。</summary>
+        public bool BossChefActive =>
+            _bossAgent != null && !_bossAgent.IsHeld &&
+            Mathf.Abs(_bossAgent.transform.position.x - (-5.2f)) < BossChefRange;
+
         /// <summary>构建白天场景。必须在根节点被移入 BistroScene 之后调用。</summary>
         public void Init(GameManager gm)
         {
@@ -191,6 +203,10 @@ namespace BistroBurrow.Bistro
             {
                 if (s != null) s.Tick(dt, stoveBusy, _restSpot);
             }
+
+            // "老板掌勺中"提示随状态开关（灶台上方）
+            if (_bossChefTag != null && _bossChefTag.activeSelf != BossChefActive)
+                _bossChefTag.SetActive(BossChefActive);
         }
 
         /// <summary>把存档中的员工以实体形式摆进店里（含自定义创始伙伴）。</summary>
@@ -213,12 +229,33 @@ namespace BistroBurrow.Bistro
                     : new Vector2(1.2f + gathererIdx++ * 0.8f, GroundY);
                 agent.Init(this, def, st, home, _restSpot);
                 _staffAgents.Add(agent);
+                if (agent.IsBoss) _bossAgent = agent; // 老板实体（掌勺判定用）
 
                 if (def.role == "Cook") bestCookDiligence = Mathf.Max(bestCookDiligence, def.diligence);
             }
+            BuildBossChefTag();
             // 帮厨自动开火间隔：取最勤快帮厨的属性（员工属性效果）
             _autoCookInterval = FormulaLib.AutoCookInterval(
                 ConfigService.Balance.autoCookBaseInterval, bestCookDiligence);
+        }
+
+        /// <summary>灶台上方"老板掌勺中"提示牌（默认隐藏，掌勺时亮起）。</summary>
+        void BuildBossChefTag()
+        {
+            if (_bossAgent == null) return;
+            _bossChefTag = new GameObject("BossChefTag");
+            _bossChefTag.transform.SetParent(transform, false);
+            _bossChefTag.transform.position = new Vector3(-5.2f, GroundY + 2.5f, 0f);
+            var canvas = _bossChefTag.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 56;
+            var rt = (RectTransform)_bossChefTag.transform;
+            rt.sizeDelta = new Vector2(220, 36);
+            rt.localScale = Vector3.one * 0.012f;
+            UnityEngine.UI.Text t = UiFactory.Label(_bossChefTag.transform,
+                "老板掌勺中·火力全开！", 24, new Color(1f, 0.75f, 0.35f), TextAnchor.MiddleCenter);
+            UiFactory.FillParent((RectTransform)t.transform);
+            _bossChefTag.SetActive(false);
         }
 
         // =====================================================================
@@ -285,13 +322,18 @@ namespace BistroBurrow.Bistro
             }
         }
 
-        /// <summary>帮厨自动开火（雇佣 Cook 后的自动化体验，GDD：依赖排班达成自动化）。</summary>
+        /// <summary>
+        /// 自动开火：雇了帮厨 → 自动化（GDD：依赖排班达成自动化）；
+        /// 老板亲自站灶台旁 → 同样能开火且大提速（老爹汉堡店式亲自掌勺）。
+        /// </summary>
         void AutoCookTick(float dt)
         {
-            if (!_gm.State.HasStaffWithRole("Cook")) return;
+            bool bossChef = BossChefActive;
+            if (!bossChef && !_gm.State.HasStaffWithRole("Cook")) return;
             _autoCookTimer -= dt;
             if (_autoCookTimer > 0f) return;
-            _autoCookTimer = _autoCookInterval; // 勤快属性越高手速越快
+            // 勤快属性越高手速越快；老板掌勺再乘提速倍率
+            _autoCookTimer = _autoCookInterval * (bossChef ? BossChefSpeedFactor : 1f);
 
             if (!_stove.HasFreeSlot) return;
             foreach (CustomerAgent a in _agents)

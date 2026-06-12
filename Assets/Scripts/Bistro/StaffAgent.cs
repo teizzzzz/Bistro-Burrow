@@ -23,6 +23,22 @@ namespace BistroBurrow.Bistro
         public bool IsHeld { get; private set; }
         /// <summary>老板被选中时为 true：AI 让位给玩家方向键操控。</summary>
         public bool PlayerControlled { get; set; }
+        /// <summary>运行时状态（疲劳等），信息卡读取用；老板/未派遣时可能为 null。</summary>
+        public StaffState Stats => _state;
+
+        /// <summary>当前行为的一句话描述（信息卡用）。</summary>
+        public string MoodText()
+        {
+            if (IsHeld) return "被拎在空中…";
+            if (PlayerControlled) return "听候差遣（方向键移动）";
+            switch (_spineAnim)
+            {
+                case "Sleep": return "在床上呼呼大睡";
+                case "Move": return "店内巡场中";
+                case "Interact": return "掌勺中，火力全开";
+            }
+            return Def != null && Def.role == "Cook" ? "守着灶台待命" : "店内待命";
+        }
 
         BistroDirector _director;
         StaffState _state;

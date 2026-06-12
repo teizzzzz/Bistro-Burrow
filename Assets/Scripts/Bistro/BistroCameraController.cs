@@ -20,7 +20,10 @@ namespace BistroBurrow.Bistro
         bool _perspective;
 
         StaffAgent _selected;
+        CustomerAgent _selectedCustomer; // 顾客也可点选（仅看信息，不可拖拽/操控）
         SelectionMarker _marker;
+        UI.InfoCardUi _infoCard;         // 左下角实时信息卡
+        Transform _dropRing;             // 拖拽时的落点投影圈
 
         Vector3 _dragStartMouse;
         float _dragStartCamX;
@@ -28,6 +31,7 @@ namespace BistroBurrow.Bistro
         bool _dragMoved;
 
         StaffAgent _pressedAgent;  // 按在员工身上（待判定：点选 or 长按提起）
+        CustomerAgent _pressedCustomer; // 按在顾客身上（仅点选）
         float _pressStartTime;
         Vector3 _pressMouse;
         bool _lifting;             // 拖拽提起进行中
@@ -69,6 +73,7 @@ namespace BistroBurrow.Bistro
         void OnDestroy()
         {
             Deselect();
+            if (_infoCard != null) Destroy(_infoCard.gameObject);
             if (_rig == null || _rig.Cam == null) return;
             Camera cam = _rig.Cam;
             cam.orthographic = _wasOrtho;
@@ -83,6 +88,9 @@ namespace BistroBurrow.Bistro
         void Update()
         {
             if (_gm == null || _gm.Phase != GamePhase.Day || _gm.UIPaused) return;
+
+            // 选中的顾客离店销毁 → 自动清理选中态
+            if (_selectedCustomer == null && _selected == null && _marker != null) Deselect();
 
             if (_perspective) UpdateZoom();
             UpdateKeys();
@@ -128,13 +136,13 @@ namespace BistroBurrow.Bistro
             if (Input.GetMouseButtonDown(0) && !OverUI())
             {
                 _pressMouse = Input.mousePosition;
-                _pressedAgent = RaycastAgent(_pressMouse);
+                Raycast(_pressMouse, out _pressedAgent, out _pressedCustomer);
                 _lifting = false;
                 if (_pressedAgent != null)
                 {
                     _pressStartTime = Time.unscaledTime; // 按在员工身上：等待点选/长按判定
                 }
-                else
+                else if (_pressedCustomer == null)
                 {
                     _dragging = true; // 按在空地：镜头拖拽平移
                     _dragMoved = false;
@@ -156,9 +164,10 @@ namespace BistroBurrow.Bistro
                 if (_lifting)
                 {
                     Vector3 w = MouseWorldOnCharPlane();
-                    _pressedAgent.DragTo(new Vector2(
-                        Mathf.Clamp(w.x, MinX, MaxX),
+                    float dragX = Mathf.Clamp(w.x, MinX, MaxX);
+                    _pressedAgent.DragTo(new Vector2(dragX,
                         Mathf.Clamp(w.y, BistroDirector.GroundY + 0.6f, BistroDirector.GroundY + 2.6f)));
+                    UpdateDropRing(dragX, _pressedAgent.transform.position.z); // 落点投影圈
                 }
             }
 
@@ -185,27 +194,55 @@ namespace BistroBurrow.Bistro
                         Mathf.Clamp(_pressedAgent.transform.position.x, MinX, MaxX),
                         BistroDirector.GroundY));
                     SfxSynth.Play(SfxSynth.Id.Click, 0.4f);
+                    ClearDropRing();
                 }
                 else if (_pressedAgent != null)
                 {
-                    Select(_pressedAgent); // 短按未拖动 = 点选
+                    Select(_pressedAgent); // 短按未拖动 = 点选员工
+                }
+                else if (_pressedCustomer != null)
+                {
+                    SelectCustomer(_pressedCustomer); // 点选顾客（只看信息）
                 }
                 else if (_dragging && !_dragMoved && !OverUI())
                 {
                     Deselect(); // 点空地（未拖动）→ 取消选中
                 }
                 _pressedAgent = null;
+                _pressedCustomer = null;
                 _lifting = false;
                 _dragging = false;
             }
         }
 
-        StaffAgent RaycastAgent(Vector3 screenPos)
+        void Raycast(Vector3 screenPos, out StaffAgent staff, out CustomerAgent customer)
         {
+            staff = null;
+            customer = null;
             Ray ray = _rig.Cam.ScreenPointToRay(screenPos);
-            if (Physics.Raycast(ray, out RaycastHit hit, 200f))
-                return hit.collider.GetComponentInParent<StaffAgent>();
-            return null;
+            if (!Physics.Raycast(ray, out RaycastHit hit, 200f)) return;
+            staff = hit.collider.GetComponentInParent<StaffAgent>();
+            if (staff == null) customer = hit.collider.GetComponentInParent<CustomerAgent>();
+        }
+
+        // ---------- 拖拽落点投影圈 ----------
+
+        void UpdateDropRing(float x, float z)
+        {
+            if (_dropRing == null)
+            {
+                var sr = SpriteFactory.NewSprite("DropRing", transform,
+                    SpriteFactory.RadialGlow(1.0f, new Color(0.45f, 1f, 0.55f, 0.5f)), Vector2.zero, 18);
+                _dropRing = sr.transform;
+                _dropRing.localScale = new Vector3(1f, 0.4f, 1f); // 压扁成地面椭圆
+            }
+            _dropRing.position = new Vector3(x, BistroDirector.GroundY + 0.02f, z);
+        }
+
+        void ClearDropRing()
+        {
+            if (_dropRing != null) Destroy(_dropRing.gameObject);
+            _dropRing = null;
         }
 
         /// <summary>鼠标在角色平面（z=0）上的世界坐标（正交/透视通用）。</summary>
@@ -225,6 +262,18 @@ namespace BistroBurrow.Bistro
             _selected.PlayerControlled = agent.IsBoss; // 老板选中即接管操控（方向键移动）
             // 相机居中跟随（offsetX=0），范围限制在舞台内
             _rig.Follow(agent.transform, CamY(), -PanLimit, PanLimit, 0f);
+            EnsureInfoCard().ShowStaff(agent);
+            SfxSynth.Play(SfxSynth.Id.Click, 0.35f);
+        }
+
+        public void SelectCustomer(CustomerAgent customer)
+        {
+            if (customer == _selectedCustomer) return;
+            Deselect();
+            _selectedCustomer = customer;
+            _marker = SelectionMarker.Attach(customer.transform, false);
+            _rig.Follow(customer.transform, CamY(), -PanLimit, PanLimit, 0f);
+            EnsureInfoCard().ShowCustomer(customer);
             SfxSynth.Play(SfxSynth.Id.Click, 0.35f);
         }
 
@@ -232,13 +281,18 @@ namespace BistroBurrow.Bistro
         {
             if (_marker != null) Object.Destroy(_marker.gameObject);
             _marker = null;
-            if (_selected != null)
-            {
-                _selected.PlayerControlled = false; // 交还 AI
-                if (_rig != null)
-                    _rig.PanTo(Mathf.Clamp(_rig.transform.position.x, -PanLimit, PanLimit), CamY());
-            }
+            if (_infoCard != null) _infoCard.Hide();
+            if ((_selected != null || _selectedCustomer != null) && _rig != null)
+                _rig.PanTo(Mathf.Clamp(_rig.transform.position.x, -PanLimit, PanLimit), CamY());
+            if (_selected != null) _selected.PlayerControlled = false; // 交还 AI
             _selected = null;
+            _selectedCustomer = null;
+        }
+
+        UI.InfoCardUi EnsureInfoCard()
+        {
+            if (_infoCard == null) _infoCard = UI.InfoCardUi.Create();
+            return _infoCard;
         }
 
         float CamY() => _perspective ? PerspY : 0f;

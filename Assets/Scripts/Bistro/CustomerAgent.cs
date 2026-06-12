@@ -84,6 +84,12 @@ namespace BistroBurrow.Bistro
 
             BuildBubble();
             SetBubbleVisible(false);
+
+            // 点选碰撞体（信息卡：看顾客点单/耐心）
+            var col = gameObject.AddComponent<BoxCollider>();
+            col.center = new Vector3(0f, 0.85f, 0f);
+            col.size = new Vector3(0.9f, 1.8f, 0.8f);
+
             Juice.PopIn(_body); // 入场回弹
         }
 
@@ -170,6 +176,24 @@ namespace BistroBurrow.Bistro
                     break;
             }
             return true;
+        }
+
+        /// <summary>当前行为的一句话描述（信息卡用）。</summary>
+        public string MoodText()
+        {
+            switch (State)
+            {
+                case Stage.WalkToQueue:
+                case Stage.InQueue: return "排队等空位";
+                case Stage.WalkToSeat: return "正在入座";
+                case Stage.Deciding: return "翻菜单挑菜中";
+                case Stage.WaitingFood: return "等餐中（看着厨房咽口水）";
+                case Stage.Eating: return "吃得正香";
+                case Stage.Leave: return "酒足饭饱，满意离店";
+                case Stage.LeaveAngry: return "等太久，气冲冲走了";
+                case Stage.LeaveNoDish: return "没想吃的，遗憾离店";
+            }
+            return "";
         }
 
         /// <summary>点单：从"已解锁且库存做得出"的菜里随机挑一道。</summary>
