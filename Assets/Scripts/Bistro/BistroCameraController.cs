@@ -108,10 +108,12 @@ namespace BistroBurrow.Bistro
             float dir = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1f : 0f)
                       - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1f : 0f);
 
-            // 老板被选中：方向键直接操控角色（镜头本就在跟随）
+            // 老板被选中：方向键直接操控角色（A/D 左右 + W/S 纵深，镜头本就在跟随）
             if (_selected != null && _selected.IsBoss && !_selected.IsHeld)
             {
-                _selected.ManualMove(dir, Time.deltaTime);
+                float dirZ = (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1f : 0f)
+                           - (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1f : 0f);
+                _selected.ManualMove(dir, dirZ, Time.deltaTime);
                 return;
             }
 

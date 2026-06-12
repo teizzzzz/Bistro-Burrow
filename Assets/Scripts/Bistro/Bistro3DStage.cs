@@ -43,14 +43,15 @@ namespace BistroBurrow.Bistro
             lightGo.transform.SetParent(stage, false);
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1.05f;
+            light.intensity = 1.15f;
             light.color = new Color(1f, 0.96f, 0.88f);
             // 房间整体转了 180°，可见面法线朝 -z：光必须从镜头侧(-z)往 +z 打
             lightGo.transform.rotation = Quaternion.Euler(42f, 15f, 0f);
 
-            // 环境光兜底（代码建的场景默认环境光近黑；精灵用无光照着色器不受影响）
+            // 环境光兜底（代码建的场景默认环境光近黑；精灵用无光照着色器不受影响）。
+            // 偏暖偏亮：纵深处的墙面不再发闷（"背景太深"观感修正）
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.45f, 0.42f, 0.40f);
+            RenderSettings.ambientLight = new Color(0.58f, 0.54f, 0.50f);
 
             // 餐桌（与 2D 桌位同坐标，客人入座逻辑零改动）
             foreach (Vector2 p in tablePos)

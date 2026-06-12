@@ -37,6 +37,12 @@ namespace BistroBurrow.Bistro
 
         const float WalkSpeed = 1.6f;
 
+        // 可行走纵深带（3D 地板条带 z≈0~1.5，留边）：0=台前，DepthMax=贴墙
+        public const float DepthMin = 0f;
+        public const float DepthMax = 1.3f;
+        const float BedDepth = 0.8f;   // 宿舍床所在纵深（睡觉时走到床上）
+        float _targetZ;                // 巡场/休息的目标纵深
+
         public void Init(BistroDirector director, StaffDef def, StaffState state, Vector2 home, Vector2 restSpot)
         {
             _director = director;
@@ -89,6 +95,7 @@ namespace BistroBurrow.Bistro
                     {
                         _resting = shouldRest;
                         _target = _resting ? restSpot : _home;
+                        _targetZ = _resting ? BedDepth : Random.Range(DepthMin, DepthMax); // 睡觉走到床那条深度
                     }
                     if (_sleepTag != null && _sleepTag.activeSelf != _resting)
                         _sleepTag.SetActive(_resting);
@@ -108,6 +115,7 @@ namespace BistroBurrow.Bistro
                             {
                                 _wanderTimer = Random.Range(2.5f, 5f);
                                 _target = new Vector2(Random.Range(-3.2f, 3.6f), BistroDirector.GroundY);
+                                _targetZ = Random.Range(DepthMin, DepthMax); // 巡场也换纵深，让 z 轴活起来
                             }
                         }
                     }
@@ -118,9 +126,9 @@ namespace BistroBurrow.Bistro
         bool MoveTowards(Vector2 target, float dt)
         {
             Vector3 pos = transform.position;
-            Vector3 next = Vector3.MoveTowards(pos, new Vector3(target.x, target.y, pos.z), WalkSpeed * dt);
+            Vector3 next = Vector3.MoveTowards(pos, new Vector3(target.x, target.y, _targetZ), WalkSpeed * dt);
             transform.position = next;
-            bool arrived = Vector2.Distance(next, target) < 0.03f;
+            bool arrived = Vector3.Distance(next, new Vector3(target.x, target.y, _targetZ)) < 0.03f;
             if (_spine != null)
             {
                 SetSpineAnim(arrived ? "Relax" : "Move");
@@ -158,30 +166,33 @@ namespace BistroBurrow.Bistro
             transform.position = new Vector3(pos.x, pos.y, transform.position.z);
         }
 
-        /// <summary>落地安置：岗位锚点/巡场目标都迁到新位置，落地小弹。</summary>
+        /// <summary>落地安置：岗位锚点/巡场目标（含纵深）都迁到新位置，落地小弹。</summary>
         public void PlaceAt(Vector2 ground)
         {
             transform.position = new Vector3(ground.x, ground.y, transform.position.z);
             _home = ground;
             _target = ground;
+            _targetZ = Mathf.Clamp(transform.position.z, DepthMin, DepthMax); // 放哪条深度就留在哪
             _wanderTimer = Random.Range(1.5f, 3f);
             _resting = false; // 被拎走就不算趴沙发了；下帧 Tick 会按疲劳重新判定
             Juice.PopIn(_body);
         }
 
-        /// <summary>老板方向键操控：每帧调用，dir∈[-1,1]，0 表示站定（回 Relax）。</summary>
-        public void ManualMove(float dir, float dt)
+        /// <summary>老板方向键操控：每帧调用。dirX 左右，dirZ 纵深（W 进/S 出），0 站定回 Relax。</summary>
+        public void ManualMove(float dirX, float dirZ, float dt)
         {
-            bool moving = Mathf.Abs(dir) > 0.01f;
+            bool moving = Mathf.Abs(dirX) > 0.01f || Mathf.Abs(dirZ) > 0.01f;
             if (moving)
             {
-                float nx = Mathf.Clamp(transform.position.x + dir * 2.6f * dt, -7f, 6.2f);
-                transform.position = new Vector3(nx, transform.position.y, transform.position.z);
+                float nx = Mathf.Clamp(transform.position.x + dirX * 2.6f * dt, -7f, 6.2f);
+                float nz = Mathf.Clamp(transform.position.z + dirZ * 2.2f * dt, DepthMin, DepthMax);
+                transform.position = new Vector3(nx, transform.position.y, nz);
                 _home = _target = new Vector2(nx, transform.position.y);
+                _targetZ = nz;
                 if (_spine != null)
                 {
                     SetSpineAnim("Move");
-                    _spine.Skeleton.FlipX = dir < 0;
+                    if (Mathf.Abs(dirX) > 0.01f) _spine.Skeleton.FlipX = dirX < 0; // 纯纵深移动保持原朝向
                 }
                 else if (_body != null)
                 {
