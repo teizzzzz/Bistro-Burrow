@@ -79,10 +79,13 @@ namespace BistroBurrow.Core
         public string displayName;
         public string shortName;   // 店内名牌用短名
         public string role;
-        public string look;        // 造型标签：rabbit/adventurer/hunter（纯视觉）
+        public string look;        // 造型标签：rabbit/adventurer/hunter/chef（纯视觉）
         public int dailyWage;
         public int hireCost;
         public string colorHex;
+        // —— 员工属性（0~10，创始伙伴可自定义分配；效果公式见 FormulaLib）——
+        public int diligence;      // 勤快：帮厨自动开火更快 / 采集员派遣产量更高
+        public int stamina;        // 耐力：派遣的疲劳消耗更低
     }
 
     /// <summary>店铺评级（GDD §5.2 阶梯式成长表）。</summary>
@@ -139,6 +142,7 @@ namespace BistroBurrow.Core
         public float seasonStyleCoef;           // α_i（MVP 全局统一）
         public float eventBonusCoef;            // β_event
         public int tipFastServePercent;
+        public float autoCookBaseInterval;      // 帮厨自动开火基础间隔（受勤快加成）
 
         public int dispatchFatigueCost;
         public int fatigueRecoverPerNight;

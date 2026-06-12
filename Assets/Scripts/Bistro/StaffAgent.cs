@@ -143,6 +143,10 @@ namespace BistroBurrow.Bistro
                     SpriteFactory.NewSprite("Hood", _body,
                         SpriteFactory.Circle(0.52f, Color.Lerp(tone, Color.black, 0.25f)), new Vector2(0f, 1.42f), 20);
                     break;
+                case "chef": // 白色厨师帽（自定义创始帮厨）
+                    SpriteFactory.NewSprite("ChefHat", _body,
+                        SpriteFactory.Rect(0.5f, 0.3f, Color.white, 0.1f), new Vector2(0f, 1.65f), 22);
+                    break;
             }
 
             BuildNameTag(def);

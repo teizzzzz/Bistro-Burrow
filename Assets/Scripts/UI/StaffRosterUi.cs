@@ -25,62 +25,66 @@ namespace BistroBurrow.UI
             BalanceDef bal = ConfigService.Balance;
 
             AddLine(parent,
-                $"帮厨白天自动开火；采集员可夜派（疲劳 +{bal.dispatchFatigueCost}，≥{bal.fatigueDispatchLimit} 须休息；留守每晚恢复 {bal.fatigueRecoverPerNight}）。",
-                TextDim, 16);
+                $"帮厨自动开火（勤快越高手速越快）；采集员可夜派（勤快加产量、耐力降疲劳；疲劳≥{bal.fatigueDispatchLimit} 须休息，留守每晚恢复 {bal.fatigueRecoverPerNight}）。",
+                TextDim, 15);
 
             int dispatchCount = 0;
             foreach (StaffState s in gm.State.Data.staff)
                 if (s != null && s.dispatchTonight) dispatchCount++;
 
+            // —— 已雇佣员工（含自定义创始伙伴，定义经 State.GetStaffDef 解析）——
+            foreach (StaffState st in gm.State.Data.staff)
+            {
+                if (st == null) continue;
+                StaffDef def = gm.State.GetStaffDef(st.id);
+                if (def == null) continue;
+                string roleText = def.role == "Cook" ? "帮厨" : "采集员";
+                string stats = $"勤{def.diligence} 耐{def.stamina}";
+
+                if (def.role == "Gatherer")
+                {
+                    bool tooTired = st.fatigue >= bal.fatigueDispatchLimit;
+                    string status = tooTired ? "　——累瘫休息中，今晚必须留守"
+                        : st.dispatchTonight ? "　——已列入今晚派遣队" : "";
+                    AddRow(parent,
+                        $"{def.displayName}（{roleText}·{stats}）　疲劳 {st.fatigue}/100{status}",
+                        st.dispatchTonight ? "取消派遣" : "今晚派遣",
+                        !tooTired || st.dispatchTonight, () =>
+                        {
+                            st.dispatchTonight = !st.dispatchTonight;
+                            SfxSynth.Play(SfxSynth.Id.Click, 0.35f);
+                            gm.UI.Toast(st.dispatchTonight
+                                ? $"{def.displayName} 今晚外出采集。"
+                                : $"{def.displayName} 今晚留守休息。");
+                            onChanged?.Invoke();
+                        }, st.dispatchTonight ? BtnSub : BtnMain);
+                }
+                else
+                {
+                    AddRow(parent, $"{def.displayName}（{roleText}·{stats}）　已在岗，自动开火做菜", null, false, null);
+                }
+            }
+
+            // —— 可招聘员工（仅配置表中尚未雇佣的）——
             if (ConfigService.Staffs != null)
             {
                 foreach (StaffDef def in ConfigService.Staffs)
                 {
-                    if (def == null) continue;
-                    StaffState st = gm.State.FindStaff(def.id);
+                    if (def == null || gm.State.HasStaff(def.id)) continue;
                     string roleText = def.role == "Cook" ? "帮厨" : "采集员";
-
-                    if (st == null)
-                    {
-                        // —— 未雇佣：招聘行 ——
-                        bool affordable = gm.State.Gold >= def.hireCost;
-                        string gap = affordable ? "" : $"（还差 {def.hireCost - gm.State.Gold} 金币）";
-                        AddRow(parent,
-                            $"{def.displayName}（{roleText}）　日薪 {def.dailyWage}　签约费 {def.hireCost}{gap}",
-                            affordable ? "雇佣" : "金币不足", affordable, () =>
+                    bool affordable = gm.State.Gold >= def.hireCost;
+                    string gap = affordable ? "" : $"（还差 {def.hireCost - gm.State.Gold} 金币）";
+                    AddRow(parent,
+                        $"{def.displayName}（{roleText}·勤{def.diligence} 耐{def.stamina}）　日薪 {def.dailyWage}　签约费 {def.hireCost}{gap}",
+                        affordable ? "雇佣" : "金币不足", affordable, () =>
+                        {
+                            if (gm.State.TryHireStaff(def))
                             {
-                                if (gm.State.TryHireStaff(def))
-                                {
-                                    SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
-                                    gm.UI.Toast($"{def.displayName} 入职了！明日清晨到岗。");
-                                    onChanged?.Invoke();
-                                }
-                            }, BtnMain);
-                    }
-                    else if (def.role == "Gatherer")
-                    {
-                        // —— 已雇佣采集员：派遣开关 + 疲劳状态 ——
-                        bool tooTired = st.fatigue >= bal.fatigueDispatchLimit;
-                        string status = tooTired ? "　——累瘫休息中，今晚必须留守"
-                            : st.dispatchTonight ? "　——已列入今晚派遣队" : "";
-                        AddRow(parent,
-                            $"{def.displayName}（{roleText}）　疲劳 {st.fatigue}/100{status}",
-                            st.dispatchTonight ? "取消派遣" : "今晚派遣",
-                            !tooTired || st.dispatchTonight, () =>
-                            {
-                                st.dispatchTonight = !st.dispatchTonight;
-                                SfxSynth.Play(SfxSynth.Id.Click, 0.35f);
-                                gm.UI.Toast(st.dispatchTonight
-                                    ? $"{def.displayName} 今晚外出采集。"
-                                    : $"{def.displayName} 今晚留守休息。");
+                                SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
+                                gm.UI.Toast($"{def.displayName} 入职了！明日清晨到岗。");
                                 onChanged?.Invoke();
-                            }, st.dispatchTonight ? BtnSub : BtnMain);
-                    }
-                    else
-                    {
-                        // —— 已雇佣帮厨：纯状态行 ——
-                        AddRow(parent, $"{def.displayName}（{roleText}）　已在岗，自动开火做菜", null, false, null);
-                    }
+                            }
+                        }, BtnMain);
                 }
             }
 

@@ -73,5 +73,27 @@ namespace BistroBurrow.Core
             int loss = Mathf.FloorToInt(lootCount * Mathf.Clamp(lossPercent, 0, 100) / 100f);
             return Mathf.Max(0, lootCount - loss);
         }
+
+        // =====================================================================
+        // 员工属性效果（勤快/耐力 0~10；创始伙伴可自定义分配）
+        // =====================================================================
+
+        /// <summary>帮厨自动开火间隔：勤快 10 时约为基础的一半（0.9s → 0.5s）。</summary>
+        public static float AutoCookInterval(float baseInterval, float diligence)
+        {
+            return baseInterval / (1f + 0.08f * Mathf.Max(0f, diligence));
+        }
+
+        /// <summary>采集员派遣产量加成：勤快每 3 点约 +1 件（10 点 → +3）。</summary>
+        public static int DispatchBonusYield(float diligence)
+        {
+            return Mathf.FloorToInt(Mathf.Max(0f, diligence) * 0.34f);
+        }
+
+        /// <summary>派遣疲劳消耗：耐力每点 -4%（10 点 → 40 变 24），下限 5。</summary>
+        public static int DispatchFatigueCost(int baseCost, float stamina)
+        {
+            return Mathf.Max(5, Mathf.RoundToInt(baseCost * (1f - 0.04f * Mathf.Clamp(stamina, 0f, 10f))));
+        }
     }
 }

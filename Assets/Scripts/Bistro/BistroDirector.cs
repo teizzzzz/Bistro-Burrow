@@ -39,6 +39,7 @@ namespace BistroBurrow.Bistro
         float _spawnInterval;
         float _spawnTimer;
         float _autoCookTimer;
+        float _autoCookInterval = 0.9f; // 由 SpawnStaffAgents 按帮厨勤快属性计算
         bool _open;
 
         /// <summary>构建白天场景。必须在根节点被移入 BistroScene 之后调用。</summary>
@@ -188,14 +189,15 @@ namespace BistroBurrow.Bistro
             }
         }
 
-        /// <summary>把存档中的员工以实体形式摆进店里。</summary>
+        /// <summary>把存档中的员工以实体形式摆进店里（含自定义创始伙伴）。</summary>
         void SpawnStaffAgents()
         {
             int gathererIdx = 0;
+            float bestCookDiligence = 0f;
             foreach (StaffState st in _gm.State.Data.staff)
             {
                 if (st == null) continue;
-                StaffDef def = ConfigService.GetStaff(st.id);
+                StaffDef def = _gm.State.GetStaffDef(st.id); // 兼容配置员工与自定义员工
                 if (def == null) continue;
 
                 var go = new GameObject($"Staff_{def.id}");
@@ -207,7 +209,12 @@ namespace BistroBurrow.Bistro
                     : new Vector2(1.2f + gathererIdx++ * 0.8f, GroundY);
                 agent.Init(this, def, st, home, _restSpot);
                 _staffAgents.Add(agent);
+
+                if (def.role == "Cook") bestCookDiligence = Mathf.Max(bestCookDiligence, def.diligence);
             }
+            // 帮厨自动开火间隔：取最勤快帮厨的属性（员工属性效果）
+            _autoCookInterval = FormulaLib.AutoCookInterval(
+                ConfigService.Balance.autoCookBaseInterval, bestCookDiligence);
         }
 
         // =====================================================================
@@ -280,7 +287,7 @@ namespace BistroBurrow.Bistro
             if (!_gm.State.HasStaffWithRole("Cook")) return;
             _autoCookTimer -= dt;
             if (_autoCookTimer > 0f) return;
-            _autoCookTimer = 0.9f;
+            _autoCookTimer = _autoCookInterval; // 勤快属性越高手速越快
 
             if (!_stove.HasFreeSlot) return;
             foreach (CustomerAgent a in _agents)

@@ -47,6 +47,23 @@
     return Math.max(0, lootCount - loss);
   }
 
+  // ---- 员工属性效果（镜像 FormulaLib，勤快/耐力 0~10）----
+
+  // 帮厨自动开火间隔：勤快 10 → 约基础的一半
+  function autoCookInterval(baseInterval, diligence) {
+    return baseInterval / (1 + 0.08 * Math.max(0, diligence));
+  }
+
+  // 派遣产量加成：勤快每 3 点约 +1 件
+  function dispatchBonusYield(diligence) {
+    return Math.floor(Math.max(0, diligence) * 0.34);
+  }
+
+  // 派遣疲劳消耗：耐力每点 -4%，下限 5
+  function dispatchFatigueCost(baseCost, stamina) {
+    return Math.max(5, Math.round(baseCost * (1 - 0.04 * Math.min(10, Math.max(0, stamina)))));
+  }
+
   // ---- 风味矩阵研发（GDD §4.1） ----
 
   function sumFlavors(ingredientIds, ingredientsById) {
@@ -124,6 +141,9 @@
     spawnInterval,
     patienceSeconds,
     lootKeptAfterPassOut,
+    autoCookInterval,
+    dispatchBonusYield,
+    dispatchFatigueCost,
     sumFlavors,
     satisfies,
     matchAnyRecipe,

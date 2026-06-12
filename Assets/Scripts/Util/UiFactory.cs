@@ -174,6 +174,35 @@ namespace BistroBurrow.Util
             if (height > 0) { le.preferredHeight = height; le.minHeight = height; }
         }
 
+        /// <summary>
+        /// 单行文本输入框（经典 InputField，不依赖 TMP）。
+        /// 用于创始伙伴取名等场景；WebGL 下经典 InputField 的软键盘/输入法兼容良好。
+        /// </summary>
+        public static InputField CreateInput(Transform parent, string initialText, int fontSize,
+            int characterLimit = 8, string name = "Input")
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.16f, 0.16f, 0.22f);
+
+            var input = go.AddComponent<InputField>();
+            input.targetGraphic = bg;
+            input.lineType = InputField.LineType.SingleLine;
+            input.characterLimit = Mathf.Max(1, characterLimit);
+
+            Text text = Label(go.transform, "", fontSize, new Color(0.95f, 0.93f, 0.86f), TextAnchor.MiddleCenter, "Text");
+            var textRt = (RectTransform)text.transform;
+            FillParent(textRt);
+            textRt.offsetMin = new Vector2(10, 4);
+            textRt.offsetMax = new Vector2(-10, -4);
+            text.supportRichText = false;
+
+            input.textComponent = text;
+            input.text = initialText ?? "";
+            return input;
+        }
+
         /// <summary>RectTransform 撑满父级。</summary>
         public static void FillParent(RectTransform rt)
         {

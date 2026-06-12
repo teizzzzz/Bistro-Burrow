@@ -66,7 +66,8 @@ namespace BistroBurrow.Core
             Application.targetFrameRate = 60;
 
             ConfigService.LoadAll();
-            // 注意：State 不在这里加载——由主菜单的「继续营业/开新店」决定
+            SaveSystem.MigrateLegacySave(); // 多档位之前的旧单档 → 迁移到档位 1
+            // 注意：State 不在这里加载——由主菜单的「继续营业/新开局」决定
             Clock = new GameClock(ConfigService.Balance.gameMinutesPerRealSecond);
             CamRig = CameraRig.Create();
             UI = UIRoot.Create(this);
@@ -92,27 +93,40 @@ namespace BistroBurrow.Core
             UI.ShowMainMenu();
         }
 
-        /// <summary>主菜单「继续营业」：读档进入白天。</summary>
-        public void StartContinueGame()
+        /// <summary>当前使用的存档档位（0~2），由主菜单选择。</summary>
+        public int CurrentSlot { get; private set; }
+
+        /// <summary>主菜单「继续营业」：读取指定档位进入白天。</summary>
+        public void StartContinueGame(int slot)
         {
             if (Phase != GamePhase.Menu) return;
-            PlayerState loaded = SaveSystem.LoadOrNull();
+            PlayerState loaded = SaveSystem.LoadOrNull(slot);
             if (loaded == null)
             {
-                UI.Toast("没有找到存档，先开一家新店吧！");
+                UI.Toast("该档位没有存档，先开一家新店吧！");
                 return;
             }
+            CurrentSlot = slot;
             State = loaded;
             BootIntoDay();
         }
 
-        /// <summary>主菜单「开新店」：覆盖确认由 UI 侧完成，这里直接执行。</summary>
-        public void StartNewGame()
+        /// <summary>
+        /// 主菜单「新开局」：在指定档位创建新档。
+        /// founder = 玩家定制的创始伙伴（取名/职业/属性加点），随档保存并直接入职。
+        /// </summary>
+        public void StartNewGame(int slot, StaffDef founder)
         {
             if (Phase != GamePhase.Menu) return;
-            SaveSystem.Wipe();
+            CurrentSlot = slot;
+            SaveSystem.Wipe(slot);
             State = PlayerState.CreateNew();
-            SaveSystem.Save(State);
+            if (founder != null && !string.IsNullOrEmpty(founder.id))
+            {
+                State.Data.customStaff.Add(founder);
+                State.Data.staff.Add(new StaffState { id = founder.id, fatigue = 0, dispatchTonight = false });
+            }
+            SaveSystem.Save(State, slot);
             BootIntoDay();
         }
 
@@ -120,7 +134,7 @@ namespace BistroBurrow.Core
         public void ReturnToMenuFromDusk()
         {
             if (Phase != GamePhase.Dusk || State == null) return;
-            SaveSystem.Save(State);
+            SaveSystem.Save(State, CurrentSlot);
             UnloadBistro();
             UI.UnbindState(State);
             State = null;
@@ -137,7 +151,7 @@ namespace BistroBurrow.Core
         void OnApplicationQuit()
         {
             // 桌面端关窗兜底存档（WebGL 关标签页不可靠，靠黄昏/黎明的阶段存档）
-            if (State != null) SaveSystem.Save(State);
+            if (State != null) SaveSystem.Save(State, CurrentSlot);
         }
 
         void Update()
@@ -220,7 +234,7 @@ namespace BistroBurrow.Core
             Report.wages = State.TotalDailyWages();
             if (Report.wages > 0) State.AddGold(-Report.wages);
 
-            SaveSystem.Save(State); // 阶段存档：当日经营成果立即落盘
+            SaveSystem.Save(State, CurrentSlot); // 阶段存档：当日经营成果立即落盘
             UI.EnterDuskMode(Report);
         }
 
@@ -288,7 +302,7 @@ namespace BistroBurrow.Core
             ResolveDispatchAndFatigue();
             State.ClearNightMeal();
             State.Data.dayIndex++;
-            SaveSystem.Save(State); // WebGL：写入 IndexedDB，防浏览器关闭丢档
+            SaveSystem.Save(State, CurrentSlot); // WebGL：写入 IndexedDB，防浏览器关闭丢档
 
             EnterDay();
         }
@@ -338,18 +352,21 @@ namespace BistroBurrow.Core
             foreach (StaffState s in State.Data.staff)
             {
                 if (s == null) continue;
-                StaffDef def = ConfigService.GetStaff(s.id);
+                // 走 State.GetStaffDef：自定义创始伙伴不在配置表里
+                StaffDef def = State.GetStaffDef(s.id);
                 bool isGatherer = def != null && def.role == "Gatherer";
 
                 if (s.dispatchTonight && isGatherer && pool != null && pool.Length > 0)
                 {
-                    int yield = Random.Range(bal.dispatchYieldMin, bal.dispatchYieldMax + 1);
+                    // 勤快加产量，耐力降疲劳（员工属性效果，公式见 FormulaLib）
+                    int yield = Random.Range(bal.dispatchYieldMin, bal.dispatchYieldMax + 1)
+                              + FormulaLib.DispatchBonusYield(def.diligence);
                     for (int i = 0; i < yield; i++)
                     {
                         string id = pool[Random.Range(0, pool.Length)];
                         if (ConfigService.GetIngredient(id) != null) State.AddIngredient(id, 1);
                     }
-                    s.fatigue = Mathf.Min(100, s.fatigue + bal.dispatchFatigueCost);
+                    s.fatigue = Mathf.Min(100, s.fatigue + FormulaLib.DispatchFatigueCost(bal.dispatchFatigueCost, def.stamina));
                     UI.Toast($"{def.displayName} 派遣归来，带回 {yield} 件食材（疲劳 {s.fatigue}）");
                 }
                 else

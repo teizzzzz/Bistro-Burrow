@@ -28,11 +28,10 @@ namespace BistroBurrow.UI
         bool _fading;
         SettlementPanel _settlement;
         StaffPanel _staffPanel;
+        FounderPanel _founderPanel;
         GameObject _menu;
-        Text _menuSaveSummary;
-        Button _menuContinueBtn;
-        Button _menuNewBtn;
-        bool _confirmingNewGame; // 「开新店」覆盖存档的二次确认态
+        RectTransform _slotList;          // 三档位卡片容器（每次显示菜单时重建）
+        int _pendingDeleteSlot = -1;      // 删除二次确认中的档位（-1=无）
 
         public static UIRoot Create(GameManager gm)
         {
@@ -153,27 +152,91 @@ namespace BistroBurrow.UI
                 new Color(0.8f, 0.76f, 0.68f), TextAnchor.MiddleCenter, "Subtitle");
             UiFactory.Place((RectTransform)subtitle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -222), new Vector2(900, 36));
 
-            _menuSaveSummary = UiFactory.Label(_menu.transform, "", 18,
-                new Color(0.72f, 0.78f, 0.7f), TextAnchor.MiddleCenter, "SaveSummary");
-            UiFactory.Place((RectTransform)_menuSaveSummary.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 64), new Vector2(800, 28));
-
-            _menuContinueBtn = UiFactory.TextButton(_menu.transform, "继续营业", () =>
-            {
-                SfxSynth.Play(SfxSynth.Id.DayStart, 0.45f);
-                _gm?.StartContinueGame();
-            }, new Color(0.8f, 0.55f, 0.25f), Color.white, 24);
-            UiFactory.Place((RectTransform)_menuContinueBtn.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(340, 58));
-
-            _menuNewBtn = UiFactory.TextButton(_menu.transform, "开新店", OnNewGameClicked,
-                new Color(0.3f, 0.38f, 0.52f), Color.white, 22);
-            UiFactory.Place((RectTransform)_menuNewBtn.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -76), new Vector2(340, 52));
+            // 三档位卡片容器（内容在 RebuildSlotList 动态生成）
+            var listGo = new GameObject("SlotList", typeof(RectTransform));
+            listGo.transform.SetParent(_menu.transform, false);
+            _slotList = (RectTransform)listGo.transform;
+            UiFactory.Place(_slotList, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -60), new Vector2(760, 280));
 
             Text hint = UiFactory.Label(_menu.transform,
                 "白天：点顾客气泡开火做菜 · 顶栏「员工」招聘派遣 ｜ 夜晚：A/D 移动 · 空格跳 · J 攻击 · 门口按 E 回家", 15,
                 new Color(0.6f, 0.6f, 0.62f), TextAnchor.MiddleCenter, "Hint");
             UiFactory.Place((RectTransform)hint.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 28), new Vector2(1100, 24));
 
+            // 创始伙伴定制面板：挂在菜单 Canvas 内（仅菜单流程使用，随菜单显隐）
+            _founderPanel = FounderPanel.Create(_menu.transform, _gm);
+
             _menu.SetActive(false);
+        }
+
+        /// <summary>重建三张存档卡片（进入菜单与每次档位变更后调用）。</summary>
+        void RebuildSlotList()
+        {
+            if (_slotList == null) return;
+            for (int i = _slotList.childCount - 1; i >= 0; i--)
+                Destroy(_slotList.GetChild(i).gameObject);
+
+            for (int slot = 0; slot < SaveSystem.SlotCount; slot++)
+            {
+                int s = slot; // 闭包独立捕获
+                RectTransform card = UiFactory.Panel(_slotList, new Color(1f, 1f, 1f, 0.06f), $"Slot{slot}");
+                UiFactory.Place(card, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0, -slot * 92), new Vector2(760, 84));
+                card.pivot = new Vector2(0.5f, 1f);
+
+                SaveData save = SaveSystem.Peek(slot);
+                string title;
+                if (save != null)
+                {
+                    ShopLevelDef lvl = ConfigService.GetShopLevel(save.shopLevel);
+                    title = $"存档 {slot + 1}　第 {save.dayIndex} 天 · {lvl?.title ?? "?"} · 金币 {save.gold} · 菜谱 {save.unlockedRecipes?.Count ?? 0} · 员工 {save.staff?.Count ?? 0}";
+                }
+                else
+                {
+                    title = $"存档 {slot + 1}　—— 空档位，等待一段新的小馆物语";
+                }
+                Text label = UiFactory.Label(card, title, 18,
+                    save != null ? new Color(0.93f, 0.90f, 0.82f) : new Color(0.6f, 0.6f, 0.62f));
+                UiFactory.Place((RectTransform)label.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(20, 0), new Vector2(470, 60));
+
+                if (save != null)
+                {
+                    Button cont = UiFactory.TextButton(card, "继续营业", () =>
+                    {
+                        SfxSynth.Play(SfxSynth.Id.DayStart, 0.45f);
+                        _gm?.StartContinueGame(s);
+                    }, new Color(0.8f, 0.55f, 0.25f), Color.white, 18);
+                    UiFactory.Place((RectTransform)cont.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-130, 0), new Vector2(132, 48));
+
+                    bool confirming = _pendingDeleteSlot == s;
+                    Button del = UiFactory.TextButton(card, confirming ? "确认删除？" : "删除", () =>
+                    {
+                        if (_pendingDeleteSlot == s)
+                        {
+                            SaveSystem.Wipe(s);
+                            _pendingDeleteSlot = -1;
+                            Toast($"存档 {s + 1} 已删除。");
+                        }
+                        else
+                        {
+                            _pendingDeleteSlot = s; // 二次确认，点其他地方自动还原
+                        }
+                        RebuildSlotList();
+                    }, confirming ? new Color(0.72f, 0.3f, 0.26f) : new Color(0.32f, 0.3f, 0.34f),
+                       new Color(0.9f, 0.88f, 0.84f), 16);
+                    UiFactory.Place((RectTransform)del.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-16, 0), new Vector2(104, 48));
+                }
+                else
+                {
+                    Button create = UiFactory.TextButton(card, "新开局", () =>
+                    {
+                        SfxSynth.Play(SfxSynth.Id.Click, 0.4f);
+                        _pendingDeleteSlot = -1;
+                        if (_founderPanel != null) _founderPanel.Show(s); // → 创始伙伴定制
+                    }, new Color(0.3f, 0.38f, 0.52f), Color.white, 18);
+                    UiFactory.Place((RectTransform)create.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-16, 0), new Vector2(246, 48));
+                }
+            }
         }
 
         void PlaceGlow(Transform parent, Vector2 pos, float size, Color color)
@@ -186,63 +249,22 @@ namespace BistroBurrow.UI
             UiFactory.Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, new Vector2(size, size));
         }
 
-        /// <summary>「开新店」：存在旧档时二次确认，防误删进度。</summary>
-        void OnNewGameClicked()
-        {
-            if (SaveSystem.HasSave() && !_confirmingNewGame)
-            {
-                _confirmingNewGame = true;
-                SetButtonLabel(_menuNewBtn, "覆盖旧存档？再点一次确认");
-                var img = _menuNewBtn.GetComponent<Image>();
-                if (img != null) img.color = new Color(0.72f, 0.3f, 0.26f);
-                return;
-            }
-            SfxSynth.Play(SfxSynth.Id.Unlock, 0.5f);
-            _gm?.StartNewGame();
-        }
-
-        static void SetButtonLabel(Button b, string label)
-        {
-            if (b == null) return;
-            Text t = b.GetComponentInChildren<Text>();
-            if (t != null) t.text = label;
-        }
-
         public void ShowMainMenu()
         {
             // 收起一切游戏内 UI
             if (_settlement != null) _settlement.gameObject.SetActive(false);
             if (_staffPanel != null && _staffPanel.IsOpen) _staffPanel.Hide();
+            if (_founderPanel != null) _founderPanel.Hide();
             if (_topBar != null) _topBar.gameObject.SetActive(false);
 
-            // 刷新存档摘要与按钮态
-            _confirmingNewGame = false;
-            SetButtonLabel(_menuNewBtn, "开新店");
-            var img = _menuNewBtn != null ? _menuNewBtn.GetComponent<Image>() : null;
-            if (img != null) img.color = new Color(0.3f, 0.38f, 0.52f);
-
-            SaveData save = SaveSystem.Peek();
-            if (save != null)
-            {
-                ShopLevelDef lvl = ConfigService.GetShopLevel(save.shopLevel);
-                _menuSaveSummary.text = $"存档：第 {save.dayIndex} 天 · {lvl?.title ?? "?"} · 金币 {save.gold} · 菜谱 {save.unlockedRecipes?.Count ?? 0} 道 · 员工 {save.staff?.Count ?? 0} 人";
-                _menuContinueBtn.interactable = true;
-                var cImg = _menuContinueBtn.GetComponent<Image>();
-                if (cImg != null) cImg.color = new Color(0.8f, 0.55f, 0.25f);
-            }
-            else
-            {
-                _menuSaveSummary.text = "尚无存档——点「开新店」开始你的魔物美食生意";
-                _menuContinueBtn.interactable = false;
-                var cImg = _menuContinueBtn.GetComponent<Image>();
-                if (cImg != null) cImg.color = new Color(0.3f, 0.3f, 0.33f);
-            }
-
+            _pendingDeleteSlot = -1;
+            RebuildSlotList();
             if (_menu != null) _menu.SetActive(true);
         }
 
         public void HideMainMenu()
         {
+            if (_founderPanel != null) _founderPanel.Hide();
             if (_menu != null) _menu.SetActive(false);
             if (_topBar != null) _topBar.gameObject.SetActive(true);
         }

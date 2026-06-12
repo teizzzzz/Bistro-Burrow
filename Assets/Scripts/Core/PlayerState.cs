@@ -28,6 +28,8 @@ namespace BistroBurrow.Core
         public List<string> unlockedRecipes = new();
         public List<string> ownedDecor = new();
         public List<StaffState> staff = new();
+        /// <summary>本存档专属的自定义员工定义（创始伙伴等），随档持久化。</summary>
+        public List<StaffDef> customStaff = new();
     }
 
     /// <summary>白天营业结算用的流水统计（不持久化）。</summary>
@@ -207,12 +209,27 @@ namespace BistroBurrow.Core
             return true;
         }
 
+        /// <summary>
+        /// 解析员工定义：先查配置表（可招聘员工），再查本档自定义员工（创始伙伴）。
+        /// 所有"按已雇佣员工 id 取定义"的调用点必须走这里，而不是 ConfigService。
+        /// </summary>
+        public StaffDef GetStaffDef(string staffId)
+        {
+            if (string.IsNullOrEmpty(staffId)) return null;
+            StaffDef def = ConfigService.GetStaff(staffId);
+            if (def != null) return def;
+            for (int i = 0; i < Data.customStaff.Count; i++)
+                if (Data.customStaff[i] != null && Data.customStaff[i].id == staffId)
+                    return Data.customStaff[i];
+            return null;
+        }
+
         /// <summary>是否雇佣了指定职能的员工（Cook=白天自动料理）。</summary>
         public bool HasStaffWithRole(string role)
         {
             foreach (StaffState s in Data.staff)
             {
-                StaffDef def = ConfigService.GetStaff(s.id);
+                StaffDef def = GetStaffDef(s.id);
                 if (def != null && def.role == role) return true;
             }
             return false;
@@ -224,7 +241,7 @@ namespace BistroBurrow.Core
             int sum = 0;
             foreach (StaffState s in Data.staff)
             {
-                StaffDef def = ConfigService.GetStaff(s.id);
+                StaffDef def = GetStaffDef(s.id);
                 if (def != null) sum += def.dailyWage;
             }
             return sum;

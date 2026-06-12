@@ -27,6 +27,7 @@
   "seasonStyleCoef": 1.0,
   "eventBonusCoef": 0.0,
   "tipFastServePercent": 25,
+  "autoCookBaseInterval": 0.9,
   "dispatchFatigueCost": 40,
   "fatigueRecoverPerNight": 30,
   "fatigueDispatchLimit": 80,

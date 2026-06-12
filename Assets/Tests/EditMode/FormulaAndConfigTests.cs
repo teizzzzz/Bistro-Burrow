@@ -176,6 +176,67 @@ namespace BistroBurrow.Tests
             Assert.IsNull(matched, "单独史莱姆凝胶不应匹配任何菜谱（黑暗料理路线）");
         }
 
+        // ---------- 员工属性效果 ----------
+
+        [Test]
+        public void StaffStats_FormulasMatchContract()
+        {
+            // 勤快 10 → 帮厨手速约翻倍；勤快 7 → 派遣 +2；耐力 10 → 疲劳 40 变 24
+            Assert.AreEqual(0.5f, FormulaLib.AutoCookInterval(0.9f, 10f), 1e-3f);
+            Assert.AreEqual(2, FormulaLib.DispatchBonusYield(7f));
+            Assert.AreEqual(24, FormulaLib.DispatchFatigueCost(40, 10f));
+            Assert.AreEqual(40, FormulaLib.DispatchFatigueCost(40, 0f));
+        }
+
+        [Test]
+        public void CustomStaff_ResolvedByPlayerState()
+        {
+            // 自定义创始伙伴不在配置表，必须经 PlayerState.GetStaffDef 解析
+            var state = new PlayerState(new SaveData());
+            var founder = new StaffDef
+            {
+                id = "custom_founder", displayName = "测试伙伴（创始伙伴）", shortName = "测试伙伴",
+                role = "Gatherer", dailyWage = 16, diligence = 7, stamina = 3
+            };
+            state.Data.customStaff.Add(founder);
+            state.Data.staff.Add(new StaffState { id = founder.id });
+
+            Assert.IsNull(ConfigService.GetStaff("custom_founder"), "自定义员工不应进配置表");
+            Assert.IsNotNull(state.GetStaffDef("custom_founder"));
+            Assert.AreEqual(7, state.GetStaffDef("custom_founder").diligence);
+            Assert.IsTrue(state.HasStaffWithRole("Gatherer"));
+            Assert.AreEqual(16, state.TotalDailyWages());
+        }
+
+        // ---------- 存档档位 ----------
+
+        [Test]
+        public void SaveSlots_AreIsolated()
+        {
+            // 用 1/2 号档位互不干扰验证隔离性；测试后清理现场
+            SaveSystem.Wipe(1);
+            SaveSystem.Wipe(2);
+            try
+            {
+                var a = new PlayerState(new SaveData { gold = 111, dayIndex = 3 });
+                var b = new PlayerState(new SaveData { gold = 222, dayIndex = 7 });
+                SaveSystem.Save(a, 1);
+                SaveSystem.Save(b, 2);
+
+                Assert.AreEqual(111, SaveSystem.Peek(1).gold);
+                Assert.AreEqual(7, SaveSystem.Peek(2).dayIndex);
+
+                SaveSystem.Wipe(1);
+                Assert.IsFalse(SaveSystem.HasSave(1), "删除 1 号档不应影响读取逻辑");
+                Assert.IsTrue(SaveSystem.HasSave(2), "2 号档应不受影响");
+            }
+            finally
+            {
+                SaveSystem.Wipe(1);
+                SaveSystem.Wipe(2);
+            }
+        }
+
         // ---------- 配料贪心算法 ----------
 
         [Test]
