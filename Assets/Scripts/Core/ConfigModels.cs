@@ -77,7 +77,9 @@ namespace BistroBurrow.Core
     {
         public string id;
         public string displayName;
+        public string shortName;   // 店内名牌用短名
         public string role;
+        public string look;        // 造型标签：rabbit/adventurer/hunter（纯视觉）
         public int dailyWage;
         public int hireCost;
         public string colorHex;

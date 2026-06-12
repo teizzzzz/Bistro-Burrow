@@ -36,6 +36,9 @@ namespace BistroBurrow.Bistro
 
         public bool HasFreeSlot => _jobs.Count < _slots;
 
+        /// <summary>当前在烧的锅数（帮厨"干活动画"的开关信号）。</summary>
+        public int JobCount => _jobs.Count;
+
         /// <summary>开火烹饪。调用前由导演完成食材扣除（本类只管时序）。</summary>
         public bool TryStart(CustomerAgent agent, RecipeDef recipe)
         {
@@ -68,10 +71,8 @@ namespace BistroBurrow.Bistro
                 job.remain -= dt;
                 if (job.remain <= 0f)
                 {
-                    job.agent.Serve();
-                    SfxSynth.Play(SfxSynth.Id.Serve, 0.45f);
-                    FloatingText.Spawn(_sceneRoot, job.agent.transform.position + Vector3.up * 1.6f,
-                        "上菜！", new Color(1f, 0.92f, 0.6f));
+                    // 出锅 → 飞盘抛物线送达，落点才真正 Serve（含音效/飘字）
+                    FlyingDish.Launch(_sceneRoot, _stovePos + new Vector2(0f, 1.5f), job.agent);
                     _jobs.RemoveAt(i);
                 }
             }

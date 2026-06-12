@@ -341,13 +341,14 @@ namespace BistroBurrow.UI
                     if (st == null)
                     {
                         bool affordable = _gm.State.Gold >= def.hireCost;
-                        AddRow(list, $"{def.displayName}（{roleText}）　日薪 {def.dailyWage}　签约费 {def.hireCost}",
+                        string gap = affordable ? "" : $"（还差 {def.hireCost - _gm.State.Gold} 金币）";
+                        AddRow(list, $"{def.displayName}（{roleText}）　日薪 {def.dailyWage}　签约费 {def.hireCost}{gap}",
                             affordable ? "雇佣" : "金币不足", affordable, () =>
                             {
                                 if (_gm.State.TryHireStaff(def))
                                 {
                                     SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
-                                    _gm.UI.Toast($"{def.displayName} 入职了！");
+                                    _gm.UI.Toast($"{def.displayName} 入职了！明日清晨到岗。");
                                     Rebuild();
                                 }
                             });

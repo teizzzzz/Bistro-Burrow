@@ -28,9 +28,11 @@ namespace BistroBurrow.Bistro
 
         readonly List<CustomerAgent> _agents = new(); // 场上全部顾客
         readonly List<CustomerAgent> _queue = new();  // 店外排队序列（子集）
+        readonly List<StaffAgent> _staffAgents = new(); // 在岗员工实体
         CustomerAgent[] _tables;                      // 每张桌的占用者
         Vector2[] _tablePos;
         Vector2[] _queuePos;
+        Vector2 _restSpot;                            // 休息沙发位置（疲劳采集员瘫倒点）
 
         int _dailyMax;
         int _spawnedToday;
@@ -56,6 +58,7 @@ namespace BistroBurrow.Bistro
 
             BuildScene();
             _stove = new StoveStation(transform, new Vector2(-5.2f, GroundY), stoveSlots);
+            SpawnStaffAgents(); // 雇佣的员工实体到岗（依赖 _restSpot，须在 BuildScene 后）
 
             // 吸引力引擎（GDD §4.2）：店外装修决定客流刷新间隔
             BalanceDef bal = ConfigService.Balance;
@@ -78,6 +81,7 @@ namespace BistroBurrow.Bistro
             AutoCookTick(dt);
             _stove.Tick(dt);
             AgentsTick(dt);
+            StaffTick(dt);
             ClickTick();
         }
 
@@ -170,6 +174,38 @@ namespace BistroBurrow.Bistro
                     _agents.RemoveAt(i);
                     Destroy(a.gameObject);
                 }
+            }
+        }
+
+        /// <summary>驱动在岗员工实体（帮厨干活律动 / 采集员巡场与休息）。</summary>
+        void StaffTick(float dt)
+        {
+            bool stoveBusy = _stove != null && _stove.JobCount > 0;
+            foreach (StaffAgent s in _staffAgents)
+            {
+                if (s != null) s.Tick(dt, stoveBusy, _restSpot);
+            }
+        }
+
+        /// <summary>把存档中的员工以实体形式摆进店里。</summary>
+        void SpawnStaffAgents()
+        {
+            int gathererIdx = 0;
+            foreach (StaffState st in _gm.State.Data.staff)
+            {
+                if (st == null) continue;
+                StaffDef def = ConfigService.GetStaff(st.id);
+                if (def == null) continue;
+
+                var go = new GameObject($"Staff_{def.id}");
+                go.transform.SetParent(transform, false);
+                var agent = go.AddComponent<StaffAgent>();
+                // Cook 守灶台旁；Gatherer 在用餐区巡场（多名采集员错开起点）
+                Vector2 home = def.role == "Cook"
+                    ? new Vector2(-4.3f, GroundY)
+                    : new Vector2(1.2f + gathererIdx++ * 0.8f, GroundY);
+                agent.Init(this, def, st, home, _restSpot);
+                _staffAgents.Add(agent);
             }
         }
 
@@ -427,9 +463,25 @@ namespace BistroBurrow.Bistro
                 SpriteFactory.Rect(0.08f, 0.5f, new Color(0.55f, 0.48f, 0.38f), 0.02f),
                 new Vector2(-4.8f, 0.5f), 4);
 
-            // 室内盆栽（角落点缀）
-            BuildPottedPlant(new Vector2(-6.6f, GroundY), 8);
+            // 室内盆栽（门边点缀）
             BuildPottedPlant(new Vector2(4.25f, GroundY), 8);
+
+            // 员工休憩沙发（GDD §3.1 休憩室的轻量化呈现）：厨房侧角落
+            _restSpot = new Vector2(-6.5f, GroundY);
+            SpriteFactory.NewSprite("SofaShadow", transform,
+                SpriteFactory.SoftShadow(1.3f, 0.3f), _restSpot + new Vector2(0f, -0.04f), 7);
+            SpriteFactory.NewSprite("SofaBack", transform,
+                SpriteFactory.GradientRect(1.15f, 0.7f, new Color(0.46f, 0.32f, 0.26f), new Color(0.36f, 0.24f, 0.19f), 0.12f),
+                _restSpot + new Vector2(0f, 0.52f), 8);
+            SpriteFactory.NewSprite("SofaSeat", transform,
+                SpriteFactory.GradientRect(1.15f, 0.4f, new Color(0.60f, 0.44f, 0.34f), new Color(0.48f, 0.33f, 0.25f), 0.12f),
+                _restSpot + new Vector2(0f, 0.24f), 9);
+            SpriteFactory.NewSprite("SofaArmL", transform,
+                SpriteFactory.Rect(0.18f, 0.5f, new Color(0.40f, 0.27f, 0.21f), 0.08f),
+                _restSpot + new Vector2(-0.56f, 0.36f), 10);
+            SpriteFactory.NewSprite("SofaArmR", transform,
+                SpriteFactory.Rect(0.18f, 0.5f, new Color(0.40f, 0.27f, 0.21f), 0.08f),
+                _restSpot + new Vector2(0.56f, 0.36f), 10);
 
             // 餐桌：桌布渐变 + 桌腿 + 落地阴影 + 凳子
             _tablePos = new[]
