@@ -578,7 +578,12 @@
         if (dist < 80 && Math.abs(p.y - GROUND) < 60) {
           if (m.atkCd <= 0) {
             m.atkCd = 1.0;
-            p.hp -= F.actualDamage(m.def.damage, p.def);
+            let dmg = F.actualDamage(m.def.damage, p.def);
+            // 新手保护：前 N 晚伤害打折（与 Unity ExpeditionPlayer.TakeDamage 同步）
+            if (S.dayIndex <= (BAL.newbieNights || 0) && BAL.newbieDamageMultiplier > 0) {
+              dmg *= BAL.newbieDamageMultiplier;
+            }
+            p.hp -= dmg;
             p.x += p.x >= m.x ? 30 : -30;
           }
           continue;

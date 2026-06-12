@@ -130,5 +130,10 @@ ok("战斗数值：吃煲（Def+20）后巨尾蝎单次伤害降至 13.3", () =>
   const pot = CFG.recipes.find((r) => r.id === "mushroom_meat_pot");
   approx(F.actualDamage(scorpion.damage, pot.defBuff), 16 * (100 / 120), 0.01);
 });
+ok("新手保护：前 2 晚减伤倍率配置有效（拟态怪 10 伤 → 6 伤）", () => {
+  assert.ok(BAL.newbieNights >= 1, "至少保护首夜");
+  assert.ok(BAL.newbieDamageMultiplier > 0 && BAL.newbieDamageMultiplier < 1, "倍率应在 (0,1)");
+  approx(F.actualDamage(10, 0) * BAL.newbieDamageMultiplier, 6, 0.01);
+});
 
 console.log(`\n全部通过：${passed} 项断言 ✓`);
