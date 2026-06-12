@@ -40,6 +40,8 @@ namespace BistroBurrow.Bistro
         float _decideTimer;
         float _eatTimer;
         Transform _body;          // 行走上下浮动用
+        Spine.Unity.SkeletonAnimation _spine; // 配置了顾客外观池时的骨骼小人（否则为 null）
+        string _spineAnim;
         GameObject _bubble;       // 点单气泡（含菜名+耐心条）
         Text _bubbleText;
         Transform _patienceFill;  // 耐心条前景（scale.x = 比例）
@@ -50,24 +52,35 @@ namespace BistroBurrow.Bistro
             _director = director;
             transform.position = spawnPos;
 
-            // 随机配色"色块小人"：渐变身体 + 肤色头 + 眼睛 + 脚下软阴影。
-            // 一对小黑点眼睛是表现力性价比最高的一笔——小人立刻"活"了。
-            float hue = Random.value;
-            Color tone = Color.HSVToRGB(hue, 0.50f, 0.82f);
-            Color toneLight = Color.HSVToRGB(hue, 0.40f, 0.95f);
-            Color skin = Color.HSVToRGB(0.08f, Random.Range(0.18f, 0.42f), Random.Range(0.82f, 0.97f));
-
             SpriteFactory.NewSprite("Shadow", transform,
                 SpriteFactory.SoftShadow(0.72f, 0.30f), new Vector2(0f, -0.02f), 19);
 
             _body = new GameObject("Body").transform;
             _body.SetParent(transform, false);
-            SpriteFactory.NewSprite("Torso", _body,
-                SpriteFactory.GradientRect(0.55f, 0.85f, toneLight, tone, 0.16f), new Vector2(0f, 0.62f), 20);
-            SpriteFactory.NewSprite("Head", _body, SpriteFactory.Circle(0.46f, skin), new Vector2(0f, 1.32f), 21);
-            Color eye = new Color(0.12f, 0.10f, 0.10f);
-            SpriteFactory.NewSprite("EyeL", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.14f, 1.35f), 22);
-            SpriteFactory.NewSprite("EyeR", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.02f, 1.35f), 22);
+
+            // 配置了顾客外观池 → 随机抽一个 Spine 小人（资产缺失回退色块小人）
+            string[] pool = ConfigService.Balance != null ? ConfigService.Balance.customerSpineLooks : null;
+            if (pool != null && pool.Length > 0)
+            {
+                string pick = pool[Random.Range(0, pool.Length)];
+                _spine = SpineActor.Spawn(pick, _body, Vector2.zero, "Relax", true, 20, 0.75f);
+                if (_spine != null) _spineAnim = "Relax";
+            }
+            if (_spine == null)
+            {
+                // 随机配色"色块小人"：渐变身体 + 肤色头 + 眼睛。
+                // 一对小黑点眼睛是表现力性价比最高的一笔——小人立刻"活"了。
+                float hue = Random.value;
+                Color tone = Color.HSVToRGB(hue, 0.50f, 0.82f);
+                Color toneLight = Color.HSVToRGB(hue, 0.40f, 0.95f);
+                Color skin = Color.HSVToRGB(0.08f, Random.Range(0.18f, 0.42f), Random.Range(0.82f, 0.97f));
+                SpriteFactory.NewSprite("Torso", _body,
+                    SpriteFactory.GradientRect(0.55f, 0.85f, toneLight, tone, 0.16f), new Vector2(0f, 0.62f), 20);
+                SpriteFactory.NewSprite("Head", _body, SpriteFactory.Circle(0.46f, skin), new Vector2(0f, 1.32f), 21);
+                Color eye = new Color(0.12f, 0.10f, 0.10f);
+                SpriteFactory.NewSprite("EyeL", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.14f, 1.35f), 22);
+                SpriteFactory.NewSprite("EyeR", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.02f, 1.35f), 22);
+            }
 
             BuildBubble();
             SetBubbleVisible(false);
@@ -94,6 +107,7 @@ namespace BistroBurrow.Bistro
             State = Stage.Eating;
             _eatTimer = ConfigService.Balance.customerEatSeconds;
             SetBubbleVisible(false);
+            SetSpineAnim("Sit"); // 骨骼小人入座用餐
             Juice.Pulse(_body, 1.18f); // 收到菜的开心一跳
         }
 
@@ -138,8 +152,8 @@ namespace BistroBurrow.Bistro
 
                 case Stage.Eating:
                     _eatTimer -= dt;
-                    // 用餐律动：身体小幅前后点头，传达"吃得香"
-                    if (_body != null)
+                    // 用餐律动：骨骼小人播 Sit；色块小人身体小幅点头，传达"吃得香"
+                    if (_spine == null && _body != null)
                         _body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.045f, 0f);
                     if (_eatTimer <= 0f)
                     {
@@ -189,12 +203,28 @@ namespace BistroBurrow.Bistro
             Vector3 next = Vector3.MoveTowards(pos, new Vector3(target.x, target.y, pos.z), WalkSpeed * dt);
             transform.position = next;
 
-            // 行走时身体轻微浮动，模拟步伐（替代骨骼动画的最低成本方案）
             bool arrived = Vector2.Distance(next, target) < 0.02f;
-            if (_body != null)
+            if (_spine != null)
+            {
+                // 骨骼小人：真走路动画 + 按方向镜像（用餐姿态不被走位打断）
+                if (State != Stage.Eating) SetSpineAnim(arrived ? "Relax" : "Move");
+                if (!arrived && Mathf.Abs(next.x - pos.x) > 1e-5f)
+                    _spine.Skeleton.FlipX = next.x < pos.x;
+            }
+            else if (_body != null)
+            {
+                // 色块小人：行走时身体轻微浮动，模拟步伐（无骨骼动画的最低成本方案）
                 _body.localPosition = arrived ? Vector3.zero
                     : new Vector3(0f, Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.07f, 0f);
+            }
             return arrived;
+        }
+
+        void SetSpineAnim(string anim)
+        {
+            if (_spine == null || _spineAnim == anim) return;
+            SpineActor.PlayIfExists(_spine, anim, true);
+            _spineAnim = anim;
         }
 
         // ---------- 气泡 UI（世界空间） ----------

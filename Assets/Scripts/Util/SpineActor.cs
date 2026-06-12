@@ -65,9 +65,30 @@ namespace BistroBurrow.Util
         /// </summary>
         public static bool PlayIfExists(SkeletonAnimation sa, string anim, bool loop)
         {
-            if (sa == null) return false;
+            Spine.Animation found = Resolve(sa, anim, out bool exact);
+            if (found == null) return false;
+            sa.state.SetAnimation(0, found, loop);
+            return exact;
+        }
+
+        /// <summary>播放一次性动画（如攻击/受击），结束后自动接回 thenAnim 循环。</summary>
+        public static bool PlayOnceThen(SkeletonAnimation sa, string anim, string thenAnim)
+        {
+            Spine.Animation once = Resolve(sa, anim, out bool exact);
+            if (once == null || !exact) return false; // 一次性动作不做兜底——没有就保持当前循环
+            sa.state.SetAnimation(0, once, false);
+            Spine.Animation follow = Resolve(sa, thenAnim, out _);
+            if (follow != null) sa.state.AddAnimation(0, follow, true, 0f);
+            return true;
+        }
+
+        /// <summary>动画名解析：精确 → 大小写不敏感 → 首个动画兜底（exact 标记是否前两级命中）。</summary>
+        static Spine.Animation Resolve(SkeletonAnimation sa, string anim, out bool exact)
+        {
+            exact = false;
+            if (sa == null) return null;
             var data = sa.SkeletonDataAsset != null ? sa.SkeletonDataAsset.GetSkeletonData(true) : null;
-            if (data == null || data.Animations.Count == 0) return false;
+            if (data == null || data.Animations.Count == 0) return null;
 
             Spine.Animation found = string.IsNullOrEmpty(anim) ? null : data.FindAnimation(anim);
             if (found == null && !string.IsNullOrEmpty(anim))
@@ -75,10 +96,8 @@ namespace BistroBurrow.Util
                 foreach (var a in data.Animations)
                     if (string.Equals(a.Name, anim, System.StringComparison.OrdinalIgnoreCase)) { found = a; break; }
             }
-            bool exact = found != null;
-            if (found == null) found = data.Animations.Items[0];
-            sa.state.SetAnimation(0, found, loop);
-            return exact;
+            exact = found != null;
+            return found ?? data.Animations.Items[0];
         }
     }
 }

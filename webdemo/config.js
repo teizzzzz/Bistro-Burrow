@@ -47,6 +47,16 @@
       "honey_fruit",
       "slime_jelly"
     ],
+    "customerSpineLooks": [
+      "ak_amiya_winter",
+      "ak_amiya_test",
+      "ak_amiya_epoque",
+      "ak_aglina_boc",
+      "ak_platnm_summer",
+      "ak_plosis_epoque",
+      "ak_amgoat"
+    ],
+    "nightPlayerSpineLook": "ak_amiya_battle",
     "startingIngredients": [
       {
         "id": "walking_mushroom",

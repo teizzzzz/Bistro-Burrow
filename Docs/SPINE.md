@@ -36,8 +36,19 @@
 | 帮厨开火 | `Interact` |
 | 采集员疲劳睡沙发 | `Sleep` |
 
-> 当前映射（本地测试素材，已 gitignore 不入库）：莉珂=ak_amiya、加恩=ak_peacok、
-> 薇尔=ak_platnm；创始伙伴 帮厨=ak_plosis、采集员=ak_aglina；备用 ak_amgoat。
+**方式 C（顾客与夜战主厨，balance.json 配置）**：
+- `customerSpineLooks`：顾客随机外观池（骨骼名数组）。每位进店顾客随机抽一个；
+  数组留空或资产缺失自动回退色块小人。行为映射：走路 `Move`、看菜单/排队 `Relax`、
+  用餐 `Sit`，按移动方向镜像。
+- `nightPlayerSpineLook`：夜间探险主厨骨骼名（战斗正面骨骼）。行为映射：
+  待机/移动 `Idle`、攻击 `Attack`（单次播完自动接回 Idle，期间不被移动打断）、
+  昏厥 `Die`、受击压 G/B 通道红闪。留空回退拼装主厨。
+
+> 当前映射（本地测试素材，已 gitignore 不入库）：
+> 店员——莉珂=ak_amiya、加恩=ak_peacok、薇尔=ak_platnm；
+> 创始伙伴——帮厨=ak_plosis、采集员=ak_aglina；
+> 顾客池——ak_amiya_winter/test/epoque、ak_aglina_boc、ak_platnm_summer、
+> ak_plosis_epoque、ak_amgoat（7 选 1 随机）；夜战主厨——ak_amiya_battle。
 > 体型统一 0.75 缩放（原始 ~2.1m → ~1.6m）。
 > **版权提示**：ak_* 为第三方游戏提取素材，仅限本地原型验证，不得随版本发行。
 

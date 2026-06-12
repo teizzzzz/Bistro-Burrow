@@ -33,6 +33,8 @@ namespace BistroBurrow.Expedition
         float _hurtFlash;
         SpriteRenderer _bodySr;
         readonly Color _bodyColor = new Color(0.92f, 0.86f, 0.74f);
+        Spine.Unity.SkeletonAnimation _spine; // 配置了夜战骨骼时的小人（否则为 null，用拼装造型）
+        float _animLock;                      // 一次性动画（攻击）播放期间锁定循环切换
 
         public void Init(ExpeditionDirector director, float groundY)
         {
@@ -53,15 +55,21 @@ namespace BistroBurrow.Expedition
             SpriteFactory.NewSprite("Shadow", transform,
                 SpriteFactory.SoftShadow(0.78f, 0.34f), new Vector2(0f, 0.02f), 25);
 
-            // 主厨造型：围裙色身体 + 厨师帽
-            _bodySr = SpriteFactory.NewSprite("Body", transform,
-                SpriteFactory.Rect(0.55f, 0.9f, _bodyColor, 0.15f), new Vector2(0f, 0.62f), 26);
-            SpriteFactory.NewSprite("Apron", transform,
-                SpriteFactory.Rect(0.4f, 0.45f, new Color(0.75f, 0.3f, 0.28f), 0.1f), new Vector2(0f, 0.48f), 27);
-            SpriteFactory.NewSprite("Head", transform,
-                SpriteFactory.Circle(0.46f, new Color(0.96f, 0.84f, 0.72f)), new Vector2(0f, 1.34f), 27);
-            SpriteFactory.NewSprite("Hat", transform,
-                SpriteFactory.Rect(0.5f, 0.3f, Color.white, 0.1f), new Vector2(0f, 1.65f), 28);
+            // 配置了夜战骨骼 → Spine 小人（缺资产回退拼装造型）
+            if (!string.IsNullOrEmpty(_bal.nightPlayerSpineLook))
+                _spine = SpineActor.Spawn(_bal.nightPlayerSpineLook, transform, Vector2.zero, "Idle", true, 26, 0.75f);
+            if (_spine == null)
+            {
+                // 主厨造型：围裙色身体 + 厨师帽
+                _bodySr = SpriteFactory.NewSprite("Body", transform,
+                    SpriteFactory.Rect(0.55f, 0.9f, _bodyColor, 0.15f), new Vector2(0f, 0.62f), 26);
+                SpriteFactory.NewSprite("Apron", transform,
+                    SpriteFactory.Rect(0.4f, 0.45f, new Color(0.75f, 0.3f, 0.28f), 0.1f), new Vector2(0f, 0.48f), 27);
+                SpriteFactory.NewSprite("Head", transform,
+                    SpriteFactory.Circle(0.46f, new Color(0.96f, 0.84f, 0.72f)), new Vector2(0f, 1.34f), 27);
+                SpriteFactory.NewSprite("Hat", transform,
+                    SpriteFactory.Rect(0.5f, 0.3f, Color.white, 0.1f), new Vector2(0f, 1.65f), 28);
+            }
         }
 
         /// <summary>由导演每帧驱动。返回 false 表示昏厥（探险被迫结束）。</summary>
@@ -78,6 +86,8 @@ namespace BistroBurrow.Expedition
                 nx = Mathf.Clamp(nx, _director.MinX, _director.MaxX);
                 transform.position = new Vector3(nx, transform.position.y, 0f);
             }
+            if (_spine != null) _spine.Skeleton.FlipX = _facing < 0;
+            if (_animLock > 0f) _animLock -= dt;
 
             // ---- 跳跃 + 手写重力 ----
             if (_grounded && (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)))
@@ -115,16 +125,34 @@ namespace BistroBurrow.Expedition
             if (_hurtFlash > 0f)
             {
                 _hurtFlash -= dt;
+                float t = Mathf.Clamp01(_hurtFlash / 0.2f);
                 if (_bodySr != null)
-                    _bodySr.color = Color.Lerp(Color.white, new Color(1f, 0.35f, 0.35f), Mathf.Clamp01(_hurtFlash / 0.2f));
+                    _bodySr.color = Color.Lerp(Color.white, new Color(1f, 0.35f, 0.35f), t);
+                if (_spine != null)
+                {
+                    // 骨骼小人红闪：压低 G/B 通道（R 保持 1 → 偏红）
+                    _spine.Skeleton.G = 1f - 0.65f * t;
+                    _spine.Skeleton.B = 1f - 0.65f * t;
+                }
             }
 
-            if (Hp <= 0f) return false; // 昏厥
+            if (Hp <= 0f)
+            {
+                if (_spine != null) SpineActor.PlayIfExists(_spine, "Die", false); // 昏厥倒地
+                return false;
+            }
             return true;
         }
 
         void Attack()
         {
+            // 骨骼小人：施法动画单次播放，结束自动接回 Idle（动画期间不被移动状态打断）
+            if (_spine != null && SpineActor.PlayOnceThen(_spine, "Attack", "Idle"))
+            {
+                var cur = _spine.state.GetCurrent(0);
+                if (cur != null) _animLock = cur.Animation.Duration;
+            }
+
             // 挥击特效：面前短暂出现的弧光色块
             var fx = SpriteFactory.NewSprite("SlashFx", _director.transform,
                 SpriteFactory.Rect(0.7f, 0.5f, new Color(1f, 1f, 0.85f, 0.55f), 0.2f),

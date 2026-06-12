@@ -2,6 +2,43 @@
 
 ---
 
+## 2026-06-13（六）· 顾客 + 夜战主厨全面 Spine 化
+
+### 1. 本次修改目标
+
+继店员之后，把剩下两类角色也换成骨骼小人：顾客用 7 选 1 随机换装池
+（与店员不撞脸），夜间探险主厨用战斗正面骨骼（移动/攻击/受击/昏厥全接动画）。
+全部走 balance.json 配置驱动，留空即回退原拼装造型。
+
+### 2. 涉及文件及职责变动
+
+- **素材**：新增 7 套（6 套基建换装皮肤作顾客池 + 阿米娅战斗正面），
+  全部单页贴图，gitignore 规则已覆盖（ak_*）。
+- **`ConfigModels.cs` + `balance.json`**：`customerSpineLooks`（顾客随机外观池）、
+  `nightPlayerSpineLook`（夜战主厨骨骼名）。
+- **`Util/SpineActor.cs`**：抽出 `Resolve` 三级动画名解析；新增 `PlayOnceThen`
+  （一次性动画播完自动接回循环——攻击/受击类专用，名字不存在时不做兜底以免误切）。
+- **`Bistro/CustomerAgent.cs`**：进店随机抽池生成骨骼小人；行为映射
+  走路 `Move`/排队·看菜单 `Relax`/**用餐 `Sit`**，方向镜像；色块小人路径完整保留。
+- **`Expedition/ExpeditionPlayer.cs`**：战斗骨骼接入——待机/移动 `Idle`
+  （阿米娅系术师无 Move 动画，滑步可接受）、攻击 `Attack` 单次（`_animLock`
+  按动画时长锁定，期间不被移动状态打断）、昏厥 `Die`、受击红闪改为压
+  骨骼 G/B 通道（拼装路径仍走 SpriteRenderer tint）。
+
+### 3. 验证记录（Unity MCP Play 实测）
+
+| 流程 | 结果 |
+|---|---|
+| 资产导入 | 7/7 全自动 ingest（JSON 路径），v3.5.51 解析全过 |
+| 白天顾客 | 同屏命中三映射：Deciding=Relax / WalkToQueue=Move / Eating=Sit；随机池抽中 aglina_boc、amgoat、amiya_test 等（截图 ak_spine_customers_day.png） |
+| 夜战主厨 | ak_amiya_battle 上身（世界高 1.64m）；Attack 单次 1.77s loop=False 自动接回 Idle（截图 ak_spine_night_expedition.png） |
+| 回归 | 编译 0 错误；EditMode 20/20；webdemo 28/28（config 已重新生成） |
+
+> 备注：与上轮相同——ak_* 为第三方提取素材，仅本地验证；上架前以同管线
+> 替换为自有美术即可，代码零改动。
+
+---
+
 ## 2026-06-13（五）· 真实 Spine 3.5.51 小人上岗（6 角色 + 动画状态机）
 
 ### 1. 本次修改目标

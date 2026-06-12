@@ -151,6 +151,8 @@ namespace BistroBurrow.Core
         public int dispatchYieldMax;
         public int darkCuisineSalvageGold;
         public string[] dispatchLootPool;   // 员工派遣可带回的食材池
+        public string[] customerSpineLooks; // 顾客随机外观池（Spine 骨骼名；空/缺资产回退色块小人）
+        public string nightPlayerSpineLook; // 夜战主厨骨骼名（空/缺资产回退拼装造型）
 
         public ItemStack[] startingIngredients;
     }
