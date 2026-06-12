@@ -378,6 +378,20 @@ namespace BistroBurrow.Bistro
         /// <summary>店内：暖色酒馆——墙裙、木地板、窗光、吊灯光池、陈设细节。</summary>
         void BuildInterior()
         {
+            // 桌位/休憩点坐标是逻辑锚点，2D/3D 两套布景共用
+            _restSpot = new Vector2(-6.5f, GroundY);
+            _tablePos = new[]
+            {
+                new Vector2(-2.8f, -1.25f),
+                new Vector2(-1.0f, -1.25f),
+                new Vector2(0.8f, -1.25f),
+                new Vector2(2.6f, -1.25f)
+            };
+            _tables = new CustomerAgent[_tablePos.Length];
+
+            // Ark3D 资产在场 → 3D 实景舞台（餐厅 + 宿舍角）；缺资产走下方 2D 手绘
+            if (Bistro3DStage.Build(transform, GroundY, _tablePos, _restSpot)) return;
+
             // 背景墙：顶部受光的暖棕渐变 + 深色墙裙 + 黄铜色腰线
             SpriteFactory.NewSprite("Wall", transform,
                 SpriteFactory.GradientRect(13.0f, 5.0f, new Color(0.33f, 0.26f, 0.22f), new Color(0.24f, 0.18f, 0.15f), 0.06f),
@@ -476,7 +490,6 @@ namespace BistroBurrow.Bistro
             BuildPottedPlant(new Vector2(4.25f, GroundY), 8);
 
             // 员工休憩沙发（GDD §3.1 休憩室的轻量化呈现）：厨房侧角落
-            _restSpot = new Vector2(-6.5f, GroundY);
             SpriteFactory.NewSprite("SofaShadow", transform,
                 SpriteFactory.SoftShadow(1.3f, 0.3f), _restSpot + new Vector2(0f, -0.04f), 7);
             SpriteFactory.NewSprite("SofaBack", transform,
@@ -493,14 +506,6 @@ namespace BistroBurrow.Bistro
                 _restSpot + new Vector2(0.56f, 0.36f), 10);
 
             // 餐桌：桌布渐变 + 桌腿 + 落地阴影 + 凳子
-            _tablePos = new[]
-            {
-                new Vector2(-2.8f, -1.25f),
-                new Vector2(-1.0f, -1.25f),
-                new Vector2(0.8f, -1.25f),
-                new Vector2(2.6f, -1.25f)
-            };
-            _tables = new CustomerAgent[_tablePos.Length];
             foreach (Vector2 p in _tablePos)
             {
                 SpriteFactory.NewSprite("TableShadow", transform,

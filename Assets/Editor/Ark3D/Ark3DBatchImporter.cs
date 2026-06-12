@@ -25,7 +25,8 @@ namespace BistroBurrow.EditorTools
         const string TexDir = Root + "Textures";
         const string ModelDir = Root + "Models";
         const string MatDir = Root + "Materials";
-        const string PrefabDir = Root + "Prefabs";
+        // Prefab 放 Resources 下：场景全代码构建，运行时按名加载（Bistro3DStage）
+        const string PrefabDir = Root + "Resources/Ark3D/Prefabs";
 
         [MenuItem("Bistro/导入明日方舟 3D 家具（OBJ→材质→Prefab）")]
         public static void Run()
@@ -38,6 +39,7 @@ namespace BistroBurrow.EditorTools
             }
 
             CopySources(src);
+            AssetDatabase.DeleteAsset(Root + "Prefabs"); // 清理旧版（非 Resources）输出
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
 
             bool urp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline != null;
