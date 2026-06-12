@@ -2,6 +2,47 @@
 
 ---
 
+## 2026-06-13（七）· 基建 3D 资源批量导入管线（OBJ→材质→Prefab）
+
+### 1. 本次修改目标
+
+用户提供一批基建 AssetBundle 拆出的 3D 资源（项目根 `3dobj/diy/arts/`：
+furni 家具 25 件、room 房间 2 个、贴图 16 张，OBJ 无 mtllib）。建立一键导入
+管线：导入规则统一、按命名前缀自动配材质、家具/房间自动出 Prefab。
+渲染管线确认为**内置（Built-in）**→ Standard 着色器 + `_MainTex`
+（脚本已做 URP 探测，迁移后重跑即自动切 `URP/Lit` + `_BaseMap`）。
+
+### 2. 涉及文件及职责变动
+
+- **`Editor/Ark3D/Ark3DAssetPostprocessor.cs`**（新增）：仅作用于 `Assets/Ark3D/`——
+  OBJ：法线 Import、不生成 Lightmap UV、不导灯光/相机/动画、materialImportMode=None；
+  **Scale 分目录**：furni ×100（顶点 ~0.02）、room ×1（顶点本身就是米级 ~34×4.5，
+  踩坑：最初统一 ×100 导致房间 3600m）。PNG：Default + sRGB；TX_Shadow* 开 Alpha 透明。
+- **`Editor/Ark3D/Ark3DBatchImporter.cs`**（新增）：菜单
+  「Bistro/导入明日方舟 3D 家具」一键执行——拷贝（跳过 TT_*.ab.json）→
+  前缀配对（文件夹 ikeabw_ikea ↔ 贴图 TX_IKEAbw_IKEA_*，小写相等即配）→
+  生成材质（furni_01/room_01/floor_01 → _MainTex；影子=Standard 透明 Fade）→
+  家具 Prefab（主网格+shadow*.obj 透明叠加子物体）→
+  房间 Prefab（floor/frame/room + Door_L/Door_R 独立可控子物体；
+  dormitory 每主题一变体，empty 用 TX_room_empty_01）。
+- **`.gitignore`**：`3dobj/`、`Assets/Ark3D/`（第三方素材不入库）。
+
+### 3. 验证记录（Unity MCP 编辑器实测）
+
+| 流程 | 结果 |
+|---|---|
+| 一键导入 | 家具 Prefab×25、房间 Prefab×3（宿舍×2 主题+空房）、材质×8，零缺贴图警告 |
+| 尺度 | 房间 36×12×10m，床 4.9×7m——6×2 格宿舍约容 6~7 件大家具，比例正确 |
+| 材质配对 | floor/frame/room/门/家具/影子各就各位（渲染器逐一核对） |
+| 朝向坑 | 家具源模型朝 -z、房间朝 +z → 家具 Prefab 内统一转 180° 对齐（截图 ark3d_room_preview_v3.png） |
+| 回归 | 编译 0 错误；EditMode 20/20 |
+
+> 备注：① OBJ 无 mtllib 且 ab.json 的材质为外部引用，furni_01/02 变体绑定
+> 无法自动恢复，默认 01，个别家具如贴错在材质球上换 02 即可；
+> ② 素材为第三方提取物，仅本地验证，不得随版本发行。
+
+---
+
 ## 2026-06-13（六）· 顾客 + 夜战主厨全面 Spine 化
 
 ### 1. 本次修改目标

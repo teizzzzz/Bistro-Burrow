@@ -45,3 +45,8 @@ scripts/.charset.txt
 SpineRaw/
 Assets/Resources/Spine/ak_*/
 Assets/Resources/Spine/ak_*.meta
+
+# 明日方舟 3D 拆包素材（仅本地）
+3dobj/
+Assets/Ark3D/
+Assets/Ark3D.meta
