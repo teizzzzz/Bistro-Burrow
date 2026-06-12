@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bistro &amp; Burrow · 核心闭环网页验证原型</title>
+<style>
+  /* 与 Unity 工程同源数值的网页镜像原型：双击此文件即可在浏览器游玩验证 */
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: #0b0c12; color: #d8d6cc;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  h1 { font-size: 16px; font-weight: 600; color: #cdbf9e; margin: 12px 0 0; }
+  #stage { position: relative; }
+  canvas {
+    display: block; width: min(96vw, 1180px); aspect-ratio: 16/9;
+    background: #20242e; border: 1px solid #2c2f3d; border-radius: 10px;
+  }
+  #overlay {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.55); border-radius: 10px;
+  }
+  .window {
+    width: 86%; max-height: 92%; overflow-y: auto;
+    background: #16161f; border: 1px solid #34344a; border-radius: 12px;
+    padding: 16px 20px; box-shadow: 0 18px 60px rgba(0,0,0,.6);
+  }
+  .head { display: flex; justify-content: space-between; align-items: center; }
+  .title { font-size: 19px; color: #efe9da; }
+  .gold { color: #ffd75e; }
+  .dim { color: #8e8e99; font-size: 13px; }
+  .tabs { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .tabs button.on { background: #5a4630; border-color: #a8854f; }
+  .body { display: flex; flex-direction: column; gap: 8px; min-height: 280px; }
+  .body p { margin: 2px 0; }
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: rgba(255,255,255,.04); border-radius: 8px; padding: 7px 12px; font-size: 14px;
+  }
+  .actions { display: flex; gap: 14px; justify-content: center; margin-top: 16px; }
+  button {
+    background: #2a2f42; color: #e8e4d8; border: 1px solid #3d4258;
+    border-radius: 8px; padding: 7px 14px; font-size: 14px; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.2); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  .actions .main { background: #8a5c26; border-color: #c08c45; font-size: 16px; padding: 11px 22px; }
+  .actions .sub { background: #2f3a52; font-size: 16px; padding: 11px 22px; }
+  footer { display: flex; gap: 12px; align-items: center; font-size: 12px; color: #6f6f7c; padding-bottom: 14px; }
+</style>
+</head>
+<body>
+  <h1>Bistro &amp; Burrow（小馆与地穴）— 核心闭环验证原型（与 Unity 工程数值同源）</h1>
+  <div id="stage">
+    <canvas id="game" width="1280" height="720"></canvas>
+    <div id="overlay"></div>
+  </div>
+  <footer>
+    <button id="btnSpeed">白天速度 ×1</button>
+    <button id="btnReset">重置存档</button>
+    <span>白天：点顾客头上的气泡开火做菜 ｜ 夜晚：A/D 移动 · 空格跳 · J/点击攻击 · 门口按 E 回家</span>
+  </footer>
+  <script src="config.js"></script>
+  <script src="formulas.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
