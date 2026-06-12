@@ -76,6 +76,10 @@ namespace BistroBurrow.Core
 
         void Update()
         {
+            // 编辑器域重载防御：Play 中热重载会清空非序列化运行时状态（State/Clock 等），
+            // 此时静默冻结，避免每帧 NRE 刷屏（正式构建不存在运行时域重载）
+            if (State == null || Clock == null || UI == null) return;
+
             BalanceDef bal = ConfigService.Balance;
             if (bal == null) return;
 
@@ -117,6 +121,7 @@ namespace BistroBurrow.Core
             CamRig.SetBackground(new Color(0.13f, 0.15f, 0.20f));
             CamRig.SnapTo(0f, 0f);
             UI.EnterDayMode();
+            BistroBurrow.Util.SfxSynth.Play(BistroBurrow.Util.SfxSynth.Id.DayStart, 0.4f);
             UI.Toast($"第 {State.DayIndex} 天 · {ConfigService.GetShopLevel(State.ShopLevel)?.title ?? ""} 开始营业！");
         }
 

@@ -61,14 +61,15 @@ namespace BistroBurrow.UI
             AddTabButton(tabs, "人事派遣", Tab.Staff);
             AddTabButton(tabs, "战前用餐", Tab.Meal);
 
-            // 内容区
+            // 内容区（RectMask2D 裁剪：极端条目数下溢出部分不至于压到底部按钮）
             _content = UiFactory.Panel(window, new Color(1f, 1f, 1f, 0.03f), "Content");
-            UiFactory.Place(_content, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -118), new Vector2(952, 380));
+            UiFactory.Place(_content, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -118), new Vector2(952, 388));
             _content.pivot = new Vector2(0.5f, 1f);
+            _content.gameObject.AddComponent<RectMask2D>();
 
-            // 底部夜间行动
-            RectTransform actions = UiFactory.HorizontalGroup(window, 18f, "Actions");
-            UiFactory.Place(actions, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-260, 18), new Vector2(720, 52));
+            // 底部夜间行动（居中排列）
+            RectTransform actions = UiFactory.HorizontalGroup(window, 18f, "Actions", TextAnchor.MiddleCenter);
+            UiFactory.Place(actions, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 18), new Vector2(720, 52));
             Button goBtn = UiFactory.TextButton(actions, "亲自下地穴（动作采集）", () =>
             {
                 if (_gm != null) _gm.BeginNightExpedition();
@@ -125,7 +126,7 @@ namespace BistroBurrow.UI
         }
 
         RectTransform NewList() =>
-            UiFactory.VerticalGroup(_content, 8f, new RectOffset(18, 18, 14, 14), "List");
+            UiFactory.VerticalGroup(_content, 6f, new RectOffset(18, 18, 12, 12), "List");
 
         void ListFill(RectTransform list) => UiFactory.FillParent(list);
 
@@ -141,12 +142,12 @@ namespace BistroBurrow.UI
             UnityEngine.Events.UnityAction onClick, Color? btnColor = null)
         {
             RectTransform row = UiFactory.HorizontalGroup(parent, 12f, "Row");
-            UiFactory.SetLayoutSize(row, 0, 42);
+            UiFactory.SetLayoutSize(row, 0, 40);
             var bg = row.gameObject.AddComponent<Image>();
             bg.color = RowBg;
 
             Text label = UiFactory.Label(row, "  " + desc, 18, TextMain);
-            UiFactory.SetLayoutSize(label, 700, 42);
+            UiFactory.SetLayoutSize(label, 720, 40);
 
             if (btnLabel != null)
             {
@@ -226,6 +227,7 @@ namespace BistroBurrow.UI
                 switch (outcome)
                 {
                     case ResearchOutcome.UnlockedNew:
+                        SfxSynth.Play(SfxSynth.Id.Unlock, 0.55f); // 解锁=高光时刻，三音琶音
                         _gm.UI.Toast($"研发成功！解锁新菜谱「{matched.displayName}」（售价 {matched.price}）");
                         break;
                     case ResearchOutcome.AlreadyKnown:
@@ -311,6 +313,7 @@ namespace BistroBurrow.UI
                         {
                             if (_gm.State.TryBuyDecor(def))
                             {
+                                SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
                                 _gm.UI.Toast($"已购入「{def.displayName}」，明天摆到店门口！");
                                 Rebuild();
                             }
@@ -343,6 +346,7 @@ namespace BistroBurrow.UI
                             {
                                 if (_gm.State.TryHireStaff(def))
                                 {
+                                    SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
                                     _gm.UI.Toast($"{def.displayName} 入职了！");
                                     Rebuild();
                                 }
@@ -395,6 +399,7 @@ namespace BistroBurrow.UI
                             if (RecipeSystem.TryPayIngredients(r, _gm.State, consume: true))
                             {
                                 _gm.State.SetNightMeal(r);
+                                SfxSynth.Play(SfxSynth.Id.Serve, 0.35f);
                                 _gm.UI.Toast($"饱餐一顿「{r.displayName}」！今晚 Def+{r.defBuff}。");
                                 Rebuild();
                             }

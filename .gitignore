@@ -8,6 +8,10 @@
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
 
+# MCP 调试截图（运行时产物）
+/Assets/Screenshots/
+/Assets/Screenshots.meta
+
 # Unity 崩溃报告与缓存
 sysinfo.txt
 *.stackdump

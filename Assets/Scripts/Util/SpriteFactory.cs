@@ -112,5 +112,110 @@ namespace BistroBurrow.Util
             float dx = r - nx, dy = r - ny;
             return dx * dx + dy * dy <= r * r;
         }
+
+        // =====================================================================
+        // 氛围扩展：渐变 / 辉光 / 阴影 —— 把"程序员色块"推向"微缩模型"质感的三件套
+        // =====================================================================
+
+        /// <summary>
+        /// 垂直渐变圆角矩形（top→bottom）。用顶部受光、底部沉色的微差
+        /// 替代纯平色块，是最便宜的"体积感"来源。
+        /// </summary>
+        public static Sprite GradientRect(float worldW, float worldH, Color top, Color bottom, float corner = 0.06f)
+        {
+            int w = Mathf.Max(4, Mathf.RoundToInt(worldW * PPU));
+            int h = Mathf.Max(4, Mathf.RoundToInt(worldH * PPU));
+            int r = Mathf.Clamp(Mathf.RoundToInt(corner * PPU), 0, Mathf.Min(w, h) / 2);
+            string key = $"G{w}x{h}r{r}_{ColorUtility.ToHtmlStringRGBA(top)}_{ColorUtility.ToHtmlStringRGBA(bottom)}";
+            if (Cache.TryGetValue(key, out Sprite cached)) return cached;
+
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var pixels = new Color32[w * h];
+            Color32 clear = new Color32(0, 0, 0, 0);
+            for (int y = 0; y < h; y++)
+            {
+                Color32 row = Color.Lerp(bottom, top, h <= 1 ? 1f : (float)y / (h - 1));
+                for (int x = 0; x < w; x++)
+                    pixels[y * w + x] = InsideRoundedRect(x, y, w, h, r) ? row : clear;
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            var sprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
+            Cache[key] = sprite;
+            return sprite;
+        }
+
+        /// <summary>
+        /// 径向辉光（中心实、边缘透明的软圆）。配低透明度叠在灯具/月亮/拾取物上，
+        /// 是夜景氛围的核心元素。falloff 越大边缘衰减越急。
+        /// </summary>
+        public static Sprite RadialGlow(float worldDiameter, Color color, float falloff = 2.2f)
+        {
+            int d = Mathf.Max(8, Mathf.RoundToInt(worldDiameter * PPU));
+            string key = $"L{d}_{ColorUtility.ToHtmlStringRGBA(color)}_{falloff:F1}";
+            if (Cache.TryGetValue(key, out Sprite cached)) return cached;
+
+            var tex = new Texture2D(d, d, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var pixels = new Color32[d * d];
+            float c = (d - 1) * 0.5f;
+            float maxR = d * 0.5f;
+            for (int y = 0; y < d; y++)
+            {
+                for (int x = 0; x < d; x++)
+                {
+                    float dist = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c)) / maxR;
+                    float a = Mathf.Pow(Mathf.Clamp01(1f - dist), falloff);
+                    pixels[y * d + x] = new Color(color.r, color.g, color.b, color.a * a);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            var sprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, d, d), new Vector2(0.5f, 0.5f), PPU);
+            Cache[key] = sprite;
+            return sprite;
+        }
+
+        /// <summary>
+        /// 椭圆软阴影（横向压扁的径向衰减）。垫在角色/家具脚下，
+        /// 让物体"落在地上"而不是浮在背景前。
+        /// </summary>
+        public static Sprite SoftShadow(float worldW, float worldH, float alpha = 0.35f)
+        {
+            int w = Mathf.Max(8, Mathf.RoundToInt(worldW * PPU));
+            int h = Mathf.Max(6, Mathf.RoundToInt(worldH * PPU));
+            string key = $"S{w}x{h}_{alpha:F2}";
+            if (Cache.TryGetValue(key, out Sprite cached)) return cached;
+
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var pixels = new Color32[w * h];
+            float cx = (w - 1) * 0.5f, cy = (h - 1) * 0.5f;
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    float nx = (x - cx) / (w * 0.5f), ny = (y - cy) / (h * 0.5f);
+                    float dist = Mathf.Sqrt(nx * nx + ny * ny);
+                    float a = Mathf.Pow(Mathf.Clamp01(1f - dist), 1.8f) * alpha;
+                    pixels[y * w + x] = new Color(0f, 0f, 0f, a);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            var sprite = Sprite.Create(tex, new UnityEngine.Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), PPU);
+            Cache[key] = sprite;
+            return sprite;
+        }
     }
 }

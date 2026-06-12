@@ -35,11 +35,21 @@ namespace BistroBurrow.Expedition
             Color c = def != null ? SpriteFactory.ParseHex(def.colorHex) : Color.magenta;
             // 体型随血量上限略微放大，传达威胁度
             float size = def != null ? Mathf.Lerp(0.55f, 1.0f, Mathf.InverseLerp(10f, 70f, def.maxHp)) : 0.6f;
+            SpriteFactory.NewSprite("Shadow", transform,
+                SpriteFactory.SoftShadow(size * 1.2f, 0.32f), new Vector2(0f, 0.02f), 21);
             _bodySr = SpriteFactory.NewSprite("Body", transform,
-                SpriteFactory.Rect(size, size * 0.8f, c, 0.18f), new Vector2(0f, size * 0.4f), 22);
-            SpriteFactory.NewSprite("Eye", transform,
-                SpriteFactory.Circle(0.1f, new Color(0.1f, 0.08f, 0.08f)),
-                new Vector2(size * 0.18f, size * 0.5f), 23);
+                SpriteFactory.GradientRect(size, size * 0.8f, Color.Lerp(c, Color.white, 0.12f), c, 0.18f),
+                new Vector2(0f, size * 0.4f), 22);
+            // 一对警惕的眼睛比单眼更"魔物"
+            Color eyeC = new Color(0.95f, 0.92f, 0.75f);
+            SpriteFactory.NewSprite("EyeL", transform,
+                SpriteFactory.Circle(0.1f, eyeC), new Vector2(size * 0.08f, size * 0.5f), 23);
+            SpriteFactory.NewSprite("EyeR", transform,
+                SpriteFactory.Circle(0.1f, eyeC), new Vector2(size * 0.3f, size * 0.5f), 23);
+            SpriteFactory.NewSprite("PupilL", transform,
+                SpriteFactory.Circle(0.05f, new Color(0.1f, 0.08f, 0.08f)), new Vector2(size * 0.1f, size * 0.5f), 24);
+            SpriteFactory.NewSprite("PupilR", transform,
+                SpriteFactory.Circle(0.05f, new Color(0.1f, 0.08f, 0.08f)), new Vector2(size * 0.32f, size * 0.5f), 24);
 
             // 头顶血条
             var hpBg = SpriteFactory.NewSprite("HpBg", transform,
@@ -63,8 +73,9 @@ namespace BistroBurrow.Expedition
             if (_flashTimer > 0f)
             {
                 _flashTimer -= dt;
+                // 贴图自带渐变色，tint 是乘法（无法超白），受击改用红闪
                 if (_bodySr != null)
-                    _bodySr.color = Color.Lerp(SpriteFactory.ParseHex(Def.colorHex), Color.white, _flashTimer / 0.15f);
+                    _bodySr.color = Color.Lerp(Color.white, new Color(1f, 0.45f, 0.45f), Mathf.Clamp01(_flashTimer / 0.15f));
             }
 
             float px = transform.position.x;

@@ -50,15 +50,28 @@ namespace BistroBurrow.Bistro
             _director = director;
             transform.position = spawnPos;
 
-            // 随机柔和配色的"色块小人"：身体圆角矩形 + 头部圆形
-            Color tone = Color.HSVToRGB(Random.value, 0.45f, 0.85f);
+            // 随机配色"色块小人"：渐变身体 + 肤色头 + 眼睛 + 脚下软阴影。
+            // 一对小黑点眼睛是表现力性价比最高的一笔——小人立刻"活"了。
+            float hue = Random.value;
+            Color tone = Color.HSVToRGB(hue, 0.50f, 0.82f);
+            Color toneLight = Color.HSVToRGB(hue, 0.40f, 0.95f);
+            Color skin = Color.HSVToRGB(0.08f, Random.Range(0.18f, 0.42f), Random.Range(0.82f, 0.97f));
+
+            SpriteFactory.NewSprite("Shadow", transform,
+                SpriteFactory.SoftShadow(0.72f, 0.30f), new Vector2(0f, -0.02f), 19);
+
             _body = new GameObject("Body").transform;
             _body.SetParent(transform, false);
-            SpriteFactory.NewSprite("Torso", _body, SpriteFactory.Rect(0.55f, 0.85f, tone, 0.16f), new Vector2(0f, 0.62f), 20);
-            SpriteFactory.NewSprite("Head", _body, SpriteFactory.Circle(0.46f, Color.HSVToRGB(0.09f, 0.35f, 0.95f)), new Vector2(0f, 1.32f), 21);
+            SpriteFactory.NewSprite("Torso", _body,
+                SpriteFactory.GradientRect(0.55f, 0.85f, toneLight, tone, 0.16f), new Vector2(0f, 0.62f), 20);
+            SpriteFactory.NewSprite("Head", _body, SpriteFactory.Circle(0.46f, skin), new Vector2(0f, 1.32f), 21);
+            Color eye = new Color(0.12f, 0.10f, 0.10f);
+            SpriteFactory.NewSprite("EyeL", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.14f, 1.35f), 22);
+            SpriteFactory.NewSprite("EyeR", _body, SpriteFactory.Circle(0.07f, eye), new Vector2(-0.02f, 1.35f), 22);
 
             BuildBubble();
             SetBubbleVisible(false);
+            Juice.PopIn(_body); // 入场回弹
         }
 
         public void GoToQueueSpot(Vector2 spot)
@@ -81,6 +94,7 @@ namespace BistroBurrow.Bistro
             State = Stage.Eating;
             _eatTimer = ConfigService.Balance.customerEatSeconds;
             SetBubbleVisible(false);
+            Juice.Pulse(_body, 1.18f); // 收到菜的开心一跳
         }
 
         /// <summary>由导演每帧驱动。返回 false 表示生命周期结束（可回收销毁）。</summary>
@@ -124,6 +138,9 @@ namespace BistroBurrow.Bistro
 
                 case Stage.Eating:
                     _eatTimer -= dt;
+                    // 用餐律动：身体小幅前后点头，传达"吃得香"
+                    if (_body != null)
+                        _body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.045f, 0f);
                     if (_eatTimer <= 0f)
                     {
                         _director.OnCustomerPaid(this); // 付款 + 小费判定在导演侧

@@ -65,7 +65,8 @@ namespace BistroBurrow.Expedition
 
         void Update()
         {
-            if (_gm == null || _gm.Phase != GamePhase.Night || _ended) return;
+            // _gm.State 判空：编辑器 Play 中域重载会清空 GameManager 的运行时状态
+            if (_gm == null || _gm.State == null || _gm.Phase != GamePhase.Night || _ended) return;
             float dt = Time.deltaTime;
 
             if (_player != null)
@@ -145,8 +146,12 @@ namespace BistroBurrow.Expedition
                 if (!inFront || Mathf.Abs(dx) > range) continue;
                 if (Mathf.Abs(m.transform.position.y - from.y) > 1.4f) continue;
 
+                SfxSynth.Play(SfxSynth.Id.Hit, 0.45f);
+                Juice.Pulse(m.transform, 1.15f, 0.12f); // 受击挤压感
                 if (m.TakeHit(damage, from.x))
                 {
+                    // 击杀：小震屏 + 掉落弹出
+                    if (_gm.CamRig != null) Juice.Shake(_gm.CamRig.transform, 0.09f, 0.14f);
                     SpawnDrops(m.Def, m.transform.position);
                     Destroy(m.gameObject);
                 }
@@ -177,44 +182,115 @@ namespace BistroBurrow.Expedition
 
         void BuildLevel()
         {
-            // 地面（中景行走层）
-            SpriteFactory.NewSprite("Ground", transform,
-                SpriteFactory.Rect(66f, 1.6f, new Color(0.16f, 0.15f, 0.19f), 0.02f),
-                new Vector2(28.5f, GroundY - 0.8f), 5);
-
-            // 背景视差：远山脊（深）与中景树影（浅）两层（GDD §3.3）
             Transform camT = _gm.CamRig != null ? _gm.CamRig.transform : null;
+
+            // ---- 天幕层（几乎贴住镜头）：夜空渐变 + 星星 + 月亮 ----
+            var skyLayer = new GameObject("SkyLayer");
+            skyLayer.transform.SetParent(transform, false);
+            SpriteFactory.NewSprite("NightSky", skyLayer.transform,
+                SpriteFactory.GradientRect(22f, 12f, new Color(0.05f, 0.06f, 0.14f), new Color(0.13f, 0.15f, 0.28f), 0f),
+                new Vector2(0f, 0.8f), -10);
+            // 星星：两种大小随机散布在天幕上半区
+            for (int i = 0; i < 36; i++)
+            {
+                float sx = Random.Range(-10f, 10f);
+                float sy = Random.Range(0.6f, 5.4f);
+                float size = Random.value < 0.2f ? 0.07f : 0.045f;
+                float a = Random.Range(0.35f, 0.9f);
+                SpriteFactory.NewSprite("Star", skyLayer.transform,
+                    SpriteFactory.Circle(size, new Color(0.92f, 0.94f, 1f, a)),
+                    new Vector2(sx, sy), -9);
+            }
+            // 月亮 + 月晕
+            SpriteFactory.NewSprite("MoonGlow", skyLayer.transform,
+                SpriteFactory.RadialGlow(4.5f, new Color(0.85f, 0.88f, 0.75f, 0.22f)),
+                new Vector2(5.8f, 3.7f), -9);
+            SpriteFactory.NewSprite("Moon", skyLayer.transform,
+                SpriteFactory.Circle(0.95f, new Color(0.93f, 0.92f, 0.80f)),
+                new Vector2(5.8f, 3.7f), -8);
+            SpriteFactory.NewSprite("MoonCrater", skyLayer.transform,
+                SpriteFactory.Circle(0.22f, new Color(0.82f, 0.81f, 0.70f)),
+                new Vector2(6.0f, 3.85f), -7);
+            skyLayer.AddComponent<ParallaxLayer>().Init(camT, 0.04f); // 近乎跟随镜头
+
+            // ---- 远山脊（深剪影）----
             var far = new GameObject("ParallaxFar");
             far.transform.SetParent(transform, false);
             for (int i = 0; i < 9; i++)
             {
                 SpriteFactory.NewSprite($"Ridge{i}", far.transform,
-                    SpriteFactory.Rect(7f, Random.Range(2.2f, 3.6f), new Color(0.10f, 0.11f, 0.17f), 0.4f),
-                    new Vector2(i * 7.5f - 3f, 0.6f), -8);
+                    SpriteFactory.GradientRect(7f, Random.Range(2.2f, 3.6f), new Color(0.09f, 0.10f, 0.18f), new Color(0.07f, 0.08f, 0.14f), 0.4f),
+                    new Vector2(i * 7.5f - 3f, 0.6f), -7);
             }
             far.AddComponent<ParallaxLayer>().Init(camT, 0.35f);
 
+            // ---- 中景树影 ----
             var mid = new GameObject("ParallaxMid");
             mid.transform.SetParent(transform, false);
             for (int i = 0; i < 14; i++)
             {
                 float x = i * 4.6f - 2f;
                 SpriteFactory.NewSprite($"Trunk{i}", mid.transform,
-                    SpriteFactory.Rect(0.3f, 2.4f, new Color(0.13f, 0.12f, 0.15f), 0.04f),
+                    SpriteFactory.Rect(0.3f, 2.4f, new Color(0.11f, 0.10f, 0.14f), 0.04f),
                     new Vector2(x, -0.4f), -6);
                 SpriteFactory.NewSprite($"Crown{i}", mid.transform,
-                    SpriteFactory.Circle(Random.Range(1.4f, 2.2f), new Color(0.12f, 0.16f, 0.16f)),
+                    SpriteFactory.Circle(Random.Range(1.4f, 2.2f), new Color(0.10f, 0.14f, 0.15f)),
                     new Vector2(x, 1.2f), -6);
             }
             mid.AddComponent<ParallaxLayer>().Init(camT, 0.65f);
 
-            // 家门（探险入口/出口）
+            // ---- 雾气分层：两条低空软雾带（不同视差，制造空气透视）----
+            var fogA = new GameObject("FogFar");
+            fogA.transform.SetParent(transform, false);
+            for (int i = 0; i < 7; i++)
+            {
+                var fog = SpriteFactory.NewSprite($"Fog{i}", fogA.transform,
+                    SpriteFactory.RadialGlow(3.2f, new Color(0.32f, 0.38f, 0.58f, 0.10f), 1.4f),
+                    new Vector2(i * 9f, GroundY + 0.9f), -5);
+                fog.transform.localScale = new Vector3(3.4f, 1f, 1f);
+            }
+            fogA.AddComponent<ParallaxLayer>().Init(camT, 0.5f);
+            var fogB = new GameObject("FogNear");
+            fogB.transform.SetParent(transform, false);
+            for (int i = 0; i < 7; i++)
+            {
+                var fog = SpriteFactory.NewSprite($"Fog{i}", fogB.transform,
+                    SpriteFactory.RadialGlow(2.6f, new Color(0.25f, 0.30f, 0.48f, 0.13f), 1.4f),
+                    new Vector2(i * 8f + 3f, GroundY + 0.35f), 18);
+                fog.transform.localScale = new Vector3(3.8f, 0.8f, 1f);
+            }
+            fogB.AddComponent<ParallaxLayer>().Init(camT, 0.88f);
+
+            // ---- 地面：顶面微亮的渐变 + 草簇 ----
+            SpriteFactory.NewSprite("Ground", transform,
+                SpriteFactory.GradientRect(66f, 1.6f, new Color(0.17f, 0.16f, 0.22f), new Color(0.10f, 0.09f, 0.13f), 0.02f),
+                new Vector2(28.5f, GroundY - 0.8f), 5);
+            for (float gx = -2f; gx < 60f; gx += Random.Range(1.6f, 3.2f))
+            {
+                SpriteFactory.NewSprite("Grass", transform,
+                    SpriteFactory.Rect(0.1f, Random.Range(0.15f, 0.3f), new Color(0.14f, 0.20f, 0.18f), 0.03f),
+                    new Vector2(gx, GroundY + 0.1f), 6);
+            }
+
+            // ---- 萤火虫（夜林的"活物感"）----
+            for (int i = 0; i < 14; i++)
+            {
+                Firefly.Spawn(transform, new Vector2(Random.Range(2f, 58f), GroundY + Random.Range(0.8f, 2.6f)));
+            }
+
+            // ---- 家门（探险入口/出口）：门 + 暖灯 + 大光晕，黑夜中的"安全感灯塔" ----
+            SpriteFactory.NewSprite("HomeDoorFrame", transform,
+                SpriteFactory.Rect(1.26f, 2.36f, new Color(0.20f, 0.14f, 0.09f), 0.1f),
+                new Vector2(_doorX, GroundY + 1.1f), 7);
             SpriteFactory.NewSprite("HomeDoor", transform,
-                SpriteFactory.Rect(1.1f, 2.2f, new Color(0.45f, 0.33f, 0.2f), 0.12f),
+                SpriteFactory.GradientRect(1.1f, 2.2f, new Color(0.50f, 0.37f, 0.22f), new Color(0.38f, 0.27f, 0.16f), 0.12f),
                 new Vector2(_doorX, GroundY + 1.1f), 8);
             SpriteFactory.NewSprite("HomeLamp", transform,
-                SpriteFactory.Circle(0.3f, new Color(1f, 0.8f, 0.45f, 0.9f)),
+                SpriteFactory.Circle(0.3f, new Color(1f, 0.8f, 0.45f, 0.95f)),
                 new Vector2(_doorX + 0.8f, GroundY + 2.2f), 9);
+            SpriteFactory.NewSprite("HomeLampGlow", transform,
+                SpriteFactory.RadialGlow(4.6f, new Color(1f, 0.72f, 0.38f, 0.30f)),
+                new Vector2(_doorX + 0.6f, GroundY + 1.6f), 9);
 
             // 可采集植物（前景采集层）：浅区香草/蜜果，深区烬火椒
             SpawnPlant("dungeon_herb", 6f); SpawnPlant("honey_fruit", 9.5f);
@@ -252,6 +328,7 @@ namespace BistroBurrow.Expedition
             go.transform.SetParent(transform, false);
             var p = go.AddComponent<IngredientPickup>();
             p.Init(ingredientId, pos);
+            Juice.PopIn(go.transform); // 掉落物弹出
             _pickups.Add(p);
         }
 
@@ -278,8 +355,9 @@ namespace BistroBurrow.Expedition
         {
             Canvas canvas = UiFactory.CreateScreenCanvas("ExpeditionHud", 50, transform);
 
+            // y=-56：让出全局顶栏（44px）的高度，避免与时钟/金币重叠
             RectTransform panel = UiFactory.Panel(canvas.transform, new Color(0f, 0f, 0f, 0.35f), "StatusPanel");
-            UiFactory.Place(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12, -12), new Vector2(330, 132));
+            UiFactory.Place(panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12, -56), new Vector2(330, 132));
 
             _hudSatiety = UiFactory.Label(panel, "", 18, new Color(1f, 0.9f, 0.6f));
             UiFactory.Place((RectTransform)_hudSatiety.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12, -8), new Vector2(300, 22));
@@ -293,7 +371,7 @@ namespace BistroBurrow.Expedition
             UiFactory.Place((RectTransform)_hudWeight.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12, -100), new Vector2(300, 20));
 
             _hudLoot = UiFactory.Label(canvas.transform, "", 16, new Color(0.8f, 0.92f, 0.8f), TextAnchor.UpperLeft);
-            UiFactory.Place((RectTransform)_hudLoot.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16, -152), new Vector2(420, 200));
+            UiFactory.Place((RectTransform)_hudLoot.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16, -196), new Vector2(420, 200));
 
             _hudHint = UiFactory.Label(canvas.transform, "", 17, new Color(0.95f, 0.95f, 0.85f, 0.9f), TextAnchor.MiddleCenter);
             UiFactory.Place((RectTransform)_hudHint.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 26), new Vector2(700, 24));

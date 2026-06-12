@@ -69,6 +69,7 @@ namespace BistroBurrow.Bistro
                 if (job.remain <= 0f)
                 {
                     job.agent.Serve();
+                    SfxSynth.Play(SfxSynth.Id.Serve, 0.45f);
                     FloatingText.Spawn(_sceneRoot, job.agent.transform.position + Vector3.up * 1.6f,
                         "上菜！", new Color(1f, 0.92f, 0.6f));
                     _jobs.RemoveAt(i);

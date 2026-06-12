@@ -50,6 +50,9 @@ namespace BistroBurrow.Expedition
 
             transform.position = new Vector3(0f, groundY, 0f);
 
+            SpriteFactory.NewSprite("Shadow", transform,
+                SpriteFactory.SoftShadow(0.78f, 0.34f), new Vector2(0f, 0.02f), 25);
+
             // 主厨造型：围裙色身体 + 厨师帽
             _bodySr = SpriteFactory.NewSprite("Body", transform,
                 SpriteFactory.Rect(0.55f, 0.9f, _bodyColor, 0.15f), new Vector2(0f, 0.62f), 26);
@@ -108,12 +111,12 @@ namespace BistroBurrow.Expedition
                 Hp -= _bal.starveHpLossPerSecond * dt;
             }
 
-            // 受击红闪恢复
+            // 受击红闪恢复（tint 是乘法，基准必须是白色，否则会越闪越暗）
             if (_hurtFlash > 0f)
             {
                 _hurtFlash -= dt;
                 if (_bodySr != null)
-                    _bodySr.color = Color.Lerp(_bodyColor, new Color(1f, 0.3f, 0.3f), _hurtFlash / 0.2f);
+                    _bodySr.color = Color.Lerp(Color.white, new Color(1f, 0.35f, 0.35f), Mathf.Clamp01(_hurtFlash / 0.2f));
             }
 
             if (Hp <= 0f) return false; // 昏厥
@@ -137,6 +140,9 @@ namespace BistroBurrow.Expedition
             if (amount <= 0f) return;
             Hp = Mathf.Max(0f, Hp - amount);
             _hurtFlash = 0.2f;
+            SfxSynth.Play(SfxSynth.Id.Hurt, 0.5f);
+            if (GameManager.Instance != null && GameManager.Instance.CamRig != null)
+                Juice.Shake(GameManager.Instance.CamRig.transform, 0.13f, 0.18f); // 受击震屏
             // 击退半步
             float push = transform.position.x >= fromPos.x ? 0.35f : -0.35f;
             float nx = Mathf.Clamp(transform.position.x + push, _director.MinX, _director.MaxX);
@@ -159,6 +165,8 @@ namespace BistroBurrow.Expedition
             _loot.TryGetValue(ingredientId, out int n);
             _loot[ingredientId] = n + 1;
             CarryWeight += def.weight;
+            SfxSynth.Play(SfxSynth.Id.Pickup, 0.4f);
+            Juice.Pulse(transform, 1.1f, 0.15f);
             Bistro.FloatingText.Spawn(_director.transform, atPos + Vector3.up * 0.5f,
                 def.displayName, SpriteFactory.ParseHex(def.colorHex));
             return true;

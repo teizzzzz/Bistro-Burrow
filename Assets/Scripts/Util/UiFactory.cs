@@ -140,15 +140,20 @@ namespace BistroBurrow.Util
             return (RectTransform)go.transform;
         }
 
-        /// <summary>横向自动布局容器（按钮行/标签行）。</summary>
-        public static RectTransform HorizontalGroup(Transform parent, float spacing, string name = "HGroup")
+        /// <summary>
+        /// 横向自动布局容器（按钮行/标签行）。
+        /// childControlWidth 必须为 true：为 false 时布局组不采纳 LayoutElement 的
+        /// preferred/min 尺寸，子元素按默认 sizeDelta 互相叠压（结算面板曾因此错位）。
+        /// </summary>
+        public static RectTransform HorizontalGroup(Transform parent, float spacing, string name = "HGroup",
+            TextAnchor alignment = TextAnchor.MiddleLeft)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var hl = go.AddComponent<HorizontalLayoutGroup>();
             hl.spacing = spacing;
-            hl.childAlignment = TextAnchor.MiddleLeft;
-            hl.childControlWidth = false;
+            hl.childAlignment = alignment;
+            hl.childControlWidth = true;
             hl.childControlHeight = true;
             hl.childForceExpandWidth = false;
             hl.childForceExpandHeight = false;

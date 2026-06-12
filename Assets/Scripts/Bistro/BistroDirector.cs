@@ -68,8 +68,9 @@ namespace BistroBurrow.Bistro
 
         void Update()
         {
-            // 只在白天且营业中模拟；黄昏/夜晚整体冻结（场景作为结算面板的背景板）
-            if (_gm == null || _gm.Phase != GamePhase.Day || !_open) return;
+            // 只在白天且营业中模拟；黄昏/夜晚整体冻结（场景作为结算面板的背景板）。
+            // _gm.State 判空：编辑器 Play 中域重载会清空 GameManager 的运行时状态
+            if (_gm == null || _gm.State == null || _gm.Phase != GamePhase.Day || !_open) return;
             float dt = Time.deltaTime;
 
             SpawnTick(dt);
@@ -232,6 +233,7 @@ namespace BistroBurrow.Bistro
             if (_stove.TryStart(agent, agent.Order))
             {
                 agent.CookStarted = true;
+                SfxSynth.Play(SfxSynth.Id.Click, 0.4f); // 开火确认音
             }
         }
 
@@ -273,6 +275,7 @@ namespace BistroBurrow.Bistro
                 report.revenue += price;
                 report.tips += tip;
             }
+            SfxSynth.Play(SfxSynth.Id.Coin, 0.5f);
             string text = tip > 0 ? $"+{price} (小费+{tip})" : $"+{price}";
             FloatingText.Spawn(transform, agent.transform.position + Vector3.up * 1.8f,
                 text, new Color(1f, 0.85f, 0.35f));
@@ -283,6 +286,7 @@ namespace BistroBurrow.Bistro
             FreeTableOf(agent);
             DayReport report = _gm.Report;
             if (report != null) report.angryLeft++;
+            SfxSynth.Play(SfxSynth.Id.Hurt, 0.25f);
             FloatingText.Spawn(transform, agent.transform.position + Vector3.up * 1.8f,
                 "气走了！", new Color(0.95f, 0.45f, 0.4f));
         }
@@ -308,48 +312,8 @@ namespace BistroBurrow.Bistro
 
         void BuildScene()
         {
-            // ---- 店内（Inside View，相机 X=0）----
-            SpriteFactory.NewSprite("InsideWall", transform,
-                SpriteFactory.Rect(12.6f, 5.6f, new Color(0.15f, 0.17f, 0.23f), 0.1f),
-                new Vector2(-0.4f, 1.0f), 0);
-            SpriteFactory.NewSprite("InsideFloor", transform,
-                SpriteFactory.Rect(13.4f, 1.5f, new Color(0.29f, 0.23f, 0.18f), 0.04f),
-                new Vector2(0f, -2.35f), 1);
-
-            // 餐桌
-            _tablePos = new[]
-            {
-                new Vector2(-2.8f, -1.25f),
-                new Vector2(-1.0f, -1.25f),
-                new Vector2(0.8f, -1.25f),
-                new Vector2(2.6f, -1.25f)
-            };
-            _tables = new CustomerAgent[_tablePos.Length];
-            foreach (Vector2 p in _tablePos)
-            {
-                SpriteFactory.NewSprite("Table", transform,
-                    SpriteFactory.Rect(0.95f, 0.5f, new Color(0.45f, 0.33f, 0.21f), 0.08f), p, 10);
-                SpriteFactory.NewSprite("TableLeg", transform,
-                    SpriteFactory.Rect(0.16f, 0.32f, new Color(0.33f, 0.24f, 0.15f), 0.03f),
-                    p + new Vector2(0f, -0.38f), 9);
-            }
-
-            // 店门
-            SpriteFactory.NewSprite("Door", transform,
-                SpriteFactory.Rect(0.95f, 2.1f, new Color(0.36f, 0.26f, 0.17f), 0.1f),
-                new Vector2(4.7f, -0.58f), 4);
-
-            // ---- 店外（Outside View，相机 X=11.5）----
-            SpriteFactory.NewSprite("OutsideSky", transform,
-                SpriteFactory.Rect(14.5f, 6.2f, new Color(0.33f, 0.40f, 0.55f), 0.0f),
-                new Vector2(12.4f, 1.0f), -5);
-            SpriteFactory.NewSprite("OutsideStreet", transform,
-                SpriteFactory.Rect(14.5f, 1.5f, new Color(0.24f, 0.26f, 0.23f), 0.04f),
-                new Vector2(12.4f, -2.35f), 1);
-            // 店铺外立面 + 招牌底
-            SpriteFactory.NewSprite("Facade", transform,
-                SpriteFactory.Rect(1.4f, 5.6f, new Color(0.20f, 0.16f, 0.13f), 0.05f),
-                new Vector2(5.6f, 1.0f), 2);
+            BuildInterior();
+            BuildExterior();
 
             // 排队点（GDD §3.2 排队队列管理）
             _queuePos = new[]
@@ -366,6 +330,249 @@ namespace BistroBurrow.Bistro
             BuildOwnedDecor();
         }
 
+        /// <summary>店内：暖色酒馆——墙裙、木地板、窗光、吊灯光池、陈设细节。</summary>
+        void BuildInterior()
+        {
+            // 背景墙：顶部受光的暖棕渐变 + 深色墙裙 + 黄铜色腰线
+            SpriteFactory.NewSprite("Wall", transform,
+                SpriteFactory.GradientRect(13.0f, 5.0f, new Color(0.33f, 0.26f, 0.22f), new Color(0.24f, 0.18f, 0.15f), 0.06f),
+                new Vector2(-0.5f, 1.25f), 0);
+            SpriteFactory.NewSprite("Wainscot", transform,
+                SpriteFactory.GradientRect(13.0f, 1.15f, new Color(0.20f, 0.15f, 0.12f), new Color(0.16f, 0.12f, 0.09f), 0.03f),
+                new Vector2(-0.5f, -1.02f), 1);
+            SpriteFactory.NewSprite("Trim", transform,
+                SpriteFactory.Rect(13.0f, 0.09f, new Color(0.72f, 0.58f, 0.36f), 0.02f),
+                new Vector2(-0.5f, -0.42f), 2);
+            // 天花板压顶
+            SpriteFactory.NewSprite("Ceiling", transform,
+                SpriteFactory.Rect(13.0f, 0.42f, new Color(0.14f, 0.10f, 0.08f), 0.04f),
+                new Vector2(-0.5f, 3.55f), 2);
+
+            // 地板：木色渐变 + 板缝线
+            SpriteFactory.NewSprite("Floor", transform,
+                SpriteFactory.GradientRect(13.4f, 1.55f, new Color(0.42f, 0.29f, 0.18f), new Color(0.27f, 0.18f, 0.11f), 0.03f),
+                new Vector2(-0.3f, -2.33f), 1);
+            for (float px = -6.4f; px < 6.4f; px += 0.92f)
+            {
+                SpriteFactory.NewSprite("Plank", transform,
+                    SpriteFactory.Rect(0.05f, 1.45f, new Color(0f, 0f, 0f, 0.18f), 0.01f),
+                    new Vector2(px, -2.33f), 2);
+            }
+
+            // 窗户：框 + 天光 + 漫射光斑（白天的氛围光源）
+            SpriteFactory.NewSprite("WindowFrame", transform,
+                SpriteFactory.Rect(1.6f, 1.8f, new Color(0.15f, 0.11f, 0.08f), 0.06f),
+                new Vector2(-3.4f, 1.45f), 3);
+            SpriteFactory.NewSprite("WindowSky", transform,
+                SpriteFactory.GradientRect(1.36f, 1.56f, new Color(0.66f, 0.78f, 0.92f), new Color(0.85f, 0.90f, 0.97f), 0.04f),
+                new Vector2(-3.4f, 1.45f), 4);
+            SpriteFactory.NewSprite("WindowBar", transform,
+                SpriteFactory.Rect(0.07f, 1.56f, new Color(0.15f, 0.11f, 0.08f), 0.01f),
+                new Vector2(-3.4f, 1.45f), 5);
+            SpriteFactory.NewSprite("WindowGlow", transform,
+                SpriteFactory.RadialGlow(4.2f, new Color(1.0f, 0.95f, 0.80f, 0.16f)),
+                new Vector2(-3.3f, 0.7f), 6);
+
+            // 吊灯 ×3：灯线 + 灯罩 + 灯泡 + 暖光池（场景氛围的主角）
+            float[] lampXs = { -4.6f, -0.2f, 3.0f };
+            foreach (float lx in lampXs)
+            {
+                SpriteFactory.NewSprite("LampCord", transform,
+                    SpriteFactory.Rect(0.045f, 0.85f, new Color(0.10f, 0.08f, 0.06f), 0.01f),
+                    new Vector2(lx, 2.95f), 3);
+                SpriteFactory.NewSprite("LampShade", transform,
+                    SpriteFactory.GradientRect(0.62f, 0.34f, new Color(0.45f, 0.30f, 0.18f), new Color(0.30f, 0.20f, 0.12f), 0.1f),
+                    new Vector2(lx, 2.42f), 4);
+                SpriteFactory.NewSprite("LampBulb", transform,
+                    SpriteFactory.Circle(0.18f, new Color(1.0f, 0.87f, 0.58f)),
+                    new Vector2(lx, 2.22f), 5);
+                SpriteFactory.NewSprite("LampGlow", transform,
+                    SpriteFactory.RadialGlow(3.6f, new Color(1.0f, 0.78f, 0.43f, 0.30f)),
+                    new Vector2(lx, 2.0f), 6);
+            }
+
+            // 墙面陈设：挂画与圆盘
+            SpriteFactory.NewSprite("FrameA", transform,
+                SpriteFactory.Rect(0.58f, 0.70f, new Color(0.42f, 0.31f, 0.19f), 0.04f),
+                new Vector2(-1.8f, 1.7f), 3);
+            SpriteFactory.NewSprite("FrameAInner", transform,
+                SpriteFactory.GradientRect(0.44f, 0.54f, new Color(0.55f, 0.62f, 0.50f), new Color(0.36f, 0.42f, 0.34f), 0.02f),
+                new Vector2(-1.8f, 1.7f), 4);
+            SpriteFactory.NewSprite("PlateDecor", transform,
+                SpriteFactory.Circle(0.5f, new Color(0.78f, 0.70f, 0.55f)),
+                new Vector2(1.4f, 1.85f), 3);
+            SpriteFactory.NewSprite("PlateDecorIn", transform,
+                SpriteFactory.Circle(0.34f, new Color(0.52f, 0.40f, 0.28f)),
+                new Vector2(1.4f, 1.85f), 4);
+
+            // 菜单黑板（门边）：板面 + 三行"粉笔字"
+            SpriteFactory.NewSprite("MenuBoard", transform,
+                SpriteFactory.Rect(0.95f, 1.15f, new Color(0.12f, 0.10f, 0.09f), 0.05f),
+                new Vector2(3.8f, 0.45f), 3);
+            for (int i = 0; i < 3; i++)
+            {
+                SpriteFactory.NewSprite("Chalk", transform,
+                    SpriteFactory.Rect(0.62f - i * 0.12f, 0.06f, new Color(0.92f, 0.90f, 0.82f, 0.55f), 0.01f),
+                    new Vector2(3.74f, 0.78f - i * 0.3f), 4);
+            }
+
+            // 厨房后挡板 + 挂具（衬托灶台区域）
+            SpriteFactory.NewSprite("KitchenSplash", transform,
+                SpriteFactory.GradientRect(2.4f, 1.7f, new Color(0.19f, 0.14f, 0.11f), new Color(0.14f, 0.10f, 0.08f), 0.04f),
+                new Vector2(-5.2f, 0.25f), 3);
+            SpriteFactory.NewSprite("PanHang", transform,
+                SpriteFactory.Circle(0.34f, new Color(0.30f, 0.30f, 0.34f)),
+                new Vector2(-5.7f, 0.55f), 4);
+            SpriteFactory.NewSprite("LadleHang", transform,
+                SpriteFactory.Rect(0.08f, 0.5f, new Color(0.55f, 0.48f, 0.38f), 0.02f),
+                new Vector2(-4.8f, 0.5f), 4);
+
+            // 室内盆栽（角落点缀）
+            BuildPottedPlant(new Vector2(-6.6f, GroundY), 8);
+            BuildPottedPlant(new Vector2(4.25f, GroundY), 8);
+
+            // 餐桌：桌布渐变 + 桌腿 + 落地阴影 + 凳子
+            _tablePos = new[]
+            {
+                new Vector2(-2.8f, -1.25f),
+                new Vector2(-1.0f, -1.25f),
+                new Vector2(0.8f, -1.25f),
+                new Vector2(2.6f, -1.25f)
+            };
+            _tables = new CustomerAgent[_tablePos.Length];
+            foreach (Vector2 p in _tablePos)
+            {
+                SpriteFactory.NewSprite("TableShadow", transform,
+                    SpriteFactory.SoftShadow(1.3f, 0.36f), new Vector2(p.x, GroundY - 0.06f), 8);
+                SpriteFactory.NewSprite("Table", transform,
+                    SpriteFactory.GradientRect(0.98f, 0.5f, new Color(0.56f, 0.41f, 0.26f), new Color(0.42f, 0.29f, 0.17f), 0.09f),
+                    p, 10);
+                SpriteFactory.NewSprite("TableLeg", transform,
+                    SpriteFactory.Rect(0.15f, 0.34f, new Color(0.28f, 0.20f, 0.13f), 0.03f),
+                    p + new Vector2(0f, -0.4f), 9);
+                // 客人对面的小凳子
+                SpriteFactory.NewSprite("Stool", transform,
+                    SpriteFactory.GradientRect(0.4f, 0.16f, new Color(0.48f, 0.35f, 0.22f), new Color(0.36f, 0.25f, 0.15f), 0.05f),
+                    p + new Vector2(0.62f, -0.28f), 9);
+                SpriteFactory.NewSprite("StoolLeg", transform,
+                    SpriteFactory.Rect(0.1f, 0.28f, new Color(0.28f, 0.20f, 0.13f), 0.02f),
+                    p + new Vector2(0.62f, -0.5f), 8);
+            }
+
+            // 店门（含门框与把手）
+            SpriteFactory.NewSprite("DoorFrame", transform,
+                SpriteFactory.Rect(1.12f, 2.3f, new Color(0.16f, 0.11f, 0.08f), 0.07f),
+                new Vector2(4.7f, -0.52f), 3);
+            SpriteFactory.NewSprite("Door", transform,
+                SpriteFactory.GradientRect(0.92f, 2.1f, new Color(0.42f, 0.30f, 0.19f), new Color(0.31f, 0.21f, 0.13f), 0.08f),
+                new Vector2(4.7f, -0.58f), 4);
+            SpriteFactory.NewSprite("DoorKnob", transform,
+                SpriteFactory.Circle(0.1f, new Color(0.78f, 0.66f, 0.40f)),
+                new Vector2(4.4f, -0.62f), 5);
+        }
+
+        /// <summary>店外：日间街区——天空渐变、远景屋脊、雨棚招牌、街灯与路面细节。</summary>
+        void BuildExterior()
+        {
+            // 天空：清晨蓝渐变 + 太阳光斑 + 两朵软云
+            SpriteFactory.NewSprite("Sky", transform,
+                SpriteFactory.GradientRect(15.5f, 6.6f, new Color(0.46f, 0.62f, 0.84f), new Color(0.78f, 0.86f, 0.94f), 0f),
+                new Vector2(12.9f, 1.0f), -9);
+            SpriteFactory.NewSprite("Sun", transform,
+                SpriteFactory.RadialGlow(3.2f, new Color(1.0f, 0.96f, 0.82f, 0.55f)),
+                new Vector2(17.0f, 3.3f), -8);
+            var cloudA = SpriteFactory.NewSprite("CloudA", transform,
+                SpriteFactory.RadialGlow(2.0f, new Color(1f, 1f, 1f, 0.5f), 1.6f),
+                new Vector2(9.0f, 3.1f), -8);
+            cloudA.transform.localScale = new Vector3(2.3f, 1f, 1f);
+            var cloudB = SpriteFactory.NewSprite("CloudB", transform,
+                SpriteFactory.RadialGlow(1.6f, new Color(1f, 1f, 1f, 0.42f), 1.6f),
+                new Vector2(14.5f, 2.4f), -8);
+            cloudB.transform.localScale = new Vector3(2.6f, 1f, 1f);
+
+            // 远景屋脊剪影（低对比度，制造街区纵深）
+            float[][] houses = { new[] { 8.2f, 1.9f, 1.1f }, new[] { 10.4f, 2.6f, 1.5f }, new[] { 13.6f, 2.1f, 1.2f }, new[] { 16.4f, 2.8f, 1.7f }, new[] { 19.0f, 2.0f, 1.3f } };
+            foreach (float[] hse in houses)
+            {
+                SpriteFactory.NewSprite("FarHouse", transform,
+                    SpriteFactory.GradientRect(hse[1], hse[2], new Color(0.52f, 0.60f, 0.74f), new Color(0.44f, 0.52f, 0.66f), 0.05f),
+                    new Vector2(hse[0], -0.85f + hse[2] * 0.5f), -7);
+            }
+
+            // 街道：路面渐变 + 石板横线
+            SpriteFactory.NewSprite("Street", transform,
+                SpriteFactory.GradientRect(15.5f, 1.55f, new Color(0.40f, 0.38f, 0.33f), new Color(0.27f, 0.25f, 0.21f), 0.03f),
+                new Vector2(12.9f, -2.33f), 1);
+            for (float sx = 6.4f; sx < 20f; sx += 1.15f)
+            {
+                SpriteFactory.NewSprite("Cobble", transform,
+                    SpriteFactory.Rect(0.55f, 0.05f, new Color(0f, 0f, 0f, 0.20f), 0.01f),
+                    new Vector2(sx, -1.86f), 2);
+            }
+
+            // 店铺外立面 + 红色雨棚 + 悬挂招牌
+            SpriteFactory.NewSprite("Facade", transform,
+                SpriteFactory.GradientRect(1.5f, 5.7f, new Color(0.30f, 0.22f, 0.16f), new Color(0.21f, 0.15f, 0.11f), 0.04f),
+                new Vector2(5.65f, 1.0f), 2);
+            SpriteFactory.NewSprite("Awning", transform,
+                SpriteFactory.GradientRect(2.3f, 0.4f, new Color(0.76f, 0.38f, 0.27f), new Color(0.62f, 0.28f, 0.20f), 0.1f),
+                new Vector2(6.4f, 1.45f), 3);
+            SpriteFactory.NewSprite("AwningPole", transform,
+                SpriteFactory.Rect(0.07f, 0.9f, new Color(0.30f, 0.24f, 0.18f), 0.02f),
+                new Vector2(7.4f, 0.95f), 2);
+            // 招牌：吊杆 + 木牌 + 杯子图标 + 微光（指引玩家这是入口）
+            SpriteFactory.NewSprite("SignArm", transform,
+                SpriteFactory.Rect(0.7f, 0.07f, new Color(0.16f, 0.12f, 0.09f), 0.02f),
+                new Vector2(6.65f, 0.65f), 3);
+            SpriteFactory.NewSprite("SignBoard", transform,
+                SpriteFactory.GradientRect(0.85f, 0.6f, new Color(0.50f, 0.36f, 0.22f), new Color(0.38f, 0.26f, 0.16f), 0.08f),
+                new Vector2(6.95f, 0.25f), 4);
+            SpriteFactory.NewSprite("SignMug", transform,
+                SpriteFactory.Circle(0.3f, new Color(0.92f, 0.84f, 0.66f)),
+                new Vector2(6.95f, 0.25f), 5);
+            SpriteFactory.NewSprite("SignGlow", transform,
+                SpriteFactory.RadialGlow(1.6f, new Color(1.0f, 0.85f, 0.5f, 0.22f)),
+                new Vector2(6.95f, 0.25f), 5);
+
+            // 街灯 ×2（白天熄灯，剪影即可）
+            foreach (float lx in new[] { 9.6f, 15.2f })
+            {
+                SpriteFactory.NewSprite("StreetLampPole", transform,
+                    SpriteFactory.Rect(0.1f, 2.6f, new Color(0.15f, 0.14f, 0.12f), 0.03f),
+                    new Vector2(lx, -0.3f), 0);
+                SpriteFactory.NewSprite("StreetLampHead", transform,
+                    SpriteFactory.GradientRect(0.34f, 0.4f, new Color(0.95f, 0.88f, 0.66f), new Color(0.72f, 0.62f, 0.42f), 0.08f),
+                    new Vector2(lx, 1.1f), 0);
+            }
+
+            // 排队等待区地贴（弱引导）
+            for (int i = 0; i < 6; i++)
+            {
+                SpriteFactory.NewSprite("QueueMark", transform,
+                    SpriteFactory.Rect(0.4f, 0.07f, new Color(0.85f, 0.78f, 0.55f, 0.25f), 0.02f),
+                    new Vector2(6.6f + i * 0.9f, GroundY - 0.18f), 2);
+            }
+        }
+
+        /// <summary>小盆栽：陶盆 + 三叶簇。室内角落与店外装饰共用。</summary>
+        void BuildPottedPlant(Vector2 groundPos, int order)
+        {
+            SpriteFactory.NewSprite("PlantShadow", transform,
+                SpriteFactory.SoftShadow(0.7f, 0.25f), groundPos + new Vector2(0f, -0.04f), order - 1);
+            SpriteFactory.NewSprite("PlantPot", transform,
+                SpriteFactory.GradientRect(0.42f, 0.34f, new Color(0.62f, 0.40f, 0.28f), new Color(0.46f, 0.28f, 0.19f), 0.07f),
+                groundPos + new Vector2(0f, 0.17f), order);
+            SpriteFactory.NewSprite("PlantLeafM", transform,
+                SpriteFactory.Circle(0.4f, new Color(0.32f, 0.52f, 0.34f)),
+                groundPos + new Vector2(0f, 0.55f), order + 1);
+            SpriteFactory.NewSprite("PlantLeafL", transform,
+                SpriteFactory.Circle(0.3f, new Color(0.27f, 0.45f, 0.29f)),
+                groundPos + new Vector2(-0.16f, 0.44f), order);
+            SpriteFactory.NewSprite("PlantLeafR", transform,
+                SpriteFactory.Circle(0.3f, new Color(0.36f, 0.57f, 0.37f)),
+                groundPos + new Vector2(0.16f, 0.46f), order);
+        }
+
         void BuildOwnedDecor()
         {
             IReadOnlyList<string> owned = _gm.State.Data.ownedDecor;
@@ -376,12 +583,17 @@ namespace BistroBurrow.Bistro
                 DecorDef def = ConfigService.GetDecor(id);
                 if (def == null) continue;
                 Color c = SpriteFactory.ParseHex(def.colorHex);
-                // 立柱 + 主体色块的极简装饰造型
+                // 阴影 + 立柱 + 主体 + 同色微光：让装饰品像"摆出来的商品"
+                SpriteFactory.NewSprite($"DecorShadow_{id}", transform,
+                    SpriteFactory.SoftShadow(0.8f, 0.28f), new Vector2(x, GroundY - 0.05f), 5);
                 SpriteFactory.NewSprite($"DecorPole_{id}", transform,
                     SpriteFactory.Rect(0.12f, 1.0f, new Color(0.3f, 0.26f, 0.2f), 0.02f),
                     new Vector2(x, -1.1f), 6);
                 SpriteFactory.NewSprite($"Decor_{id}", transform,
-                    SpriteFactory.Rect(0.62f, 0.62f, c, 0.16f),
+                    SpriteFactory.GradientRect(0.62f, 0.62f, Color.Lerp(c, Color.white, 0.15f), c, 0.16f),
+                    new Vector2(x, -0.35f), 7);
+                SpriteFactory.NewSprite($"DecorGlow_{id}", transform,
+                    SpriteFactory.RadialGlow(1.3f, new Color(c.r, c.g, c.b, 0.18f)),
                     new Vector2(x, -0.35f), 7);
                 x += 1.35f;
             }
