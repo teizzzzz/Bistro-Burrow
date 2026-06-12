@@ -41,6 +41,11 @@ namespace BistroBurrow.Bistro
 
             BuildVisual(def);
 
+            // 点选碰撞体（BistroCameraController 射线选人用）
+            var col = gameObject.AddComponent<BoxCollider>();
+            col.center = new Vector3(0f, 0.85f, 0f);
+            col.size = new Vector3(0.9f, 1.8f, 0.8f);
+
             // 疲劳过高的采集员直接趴在沙发上开工
             _resting = def.role == "Gatherer" && state != null &&
                        state.fatigue >= ConfigService.Balance.fatigueDispatchLimit;

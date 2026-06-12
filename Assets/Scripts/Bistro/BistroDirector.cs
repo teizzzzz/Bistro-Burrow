@@ -41,6 +41,7 @@ namespace BistroBurrow.Bistro
         float _autoCookTimer;
         float _autoCookInterval = 0.9f; // 由 SpawnStaffAgents 按帮厨勤快属性计算
         bool _open;
+        bool _stage3D; // 3D 实景舞台是否在场（决定相机透视模式）
 
         /// <summary>构建白天场景。必须在根节点被移入 BistroScene 之后调用。</summary>
         public void Init(GameManager gm)
@@ -60,6 +61,9 @@ namespace BistroBurrow.Bistro
             BuildScene();
             _stove = new StoveStation(transform, new Vector2(-5.2f, GroundY), stoveSlots);
             SpawnStaffAgents(); // 雇佣的员工实体到岗（依赖 _restSpot，须在 BuildScene 后）
+
+            // 基建式相机操作：3D 舞台下透视+视差；任意模式下点选员工/镜头跟随
+            gameObject.AddComponent<BistroCameraController>().Init(_gm, _stage3D);
 
             // 吸引力引擎（GDD §4.2）：店外装修决定客流刷新间隔
             BalanceDef bal = ConfigService.Balance;
@@ -390,7 +394,8 @@ namespace BistroBurrow.Bistro
             _tables = new CustomerAgent[_tablePos.Length];
 
             // Ark3D 资产在场 → 3D 实景舞台（餐厅 + 宿舍角）；缺资产走下方 2D 手绘
-            if (Bistro3DStage.Build(transform, GroundY, _tablePos, _restSpot)) return;
+            _stage3D = Bistro3DStage.Build(transform, GroundY, _tablePos, _restSpot);
+            if (_stage3D) return;
 
             // 背景墙：顶部受光的暖棕渐变 + 深色墙裙 + 黄铜色腰线
             SpriteFactory.NewSprite("Wall", transform,

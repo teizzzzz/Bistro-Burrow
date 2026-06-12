@@ -12,10 +12,12 @@ namespace BistroBurrow.Core
     {
         public Camera Cam { get; private set; }
 
-        Transform _followTarget;     // 夜晚跟随目标（空 = 定点模式）
+        Transform _followTarget;     // 跟随目标（空 = 定点模式）
         float _targetX;              // 定点模式目标 X
         float _y;                    // 固定高度
-        float _minX = float.MinValue; // 跟随时的左边界（探险场景防止看出地图）
+        float _minX = float.MinValue; // 跟随左边界（探险防止看出地图）
+        float _maxX = float.MaxValue; // 跟随右边界（白天舞台范围）
+        float _followOffsetX = 1.5f;  // 跟随横向偏移（夜晚镜头让前方；白天选人居中=0）
         const float LerpSpeed = 5f;
 
         /// <summary>创建全局唯一主相机（常驻 ManagerScene，跨阶段复用）。</summary>
@@ -43,7 +45,8 @@ namespace BistroBurrow.Core
             _followTarget = null;
             _targetX = x;
             _y = y;
-            _minX = float.MinValue; // 清除上一夜的跟随左边界，防止白天镜头被错误钳制
+            _minX = float.MinValue; // 清除上一夜的跟随边界，防止白天镜头被错误钳制
+            _maxX = float.MaxValue;
         }
 
         /// <summary>立即跳转（阶段切换时避免相机从旧位置飞过来）。</summary>
@@ -53,12 +56,15 @@ namespace BistroBurrow.Core
             transform.position = new Vector3(x, y, -10f);
         }
 
-        /// <summary>跟随模式（夜晚）。minX 防止相机越过地图左缘。</summary>
-        public void Follow(Transform target, float y, float minX)
+        /// <summary>跟随模式。minX/maxX 为镜头边界；offsetX 为横向构图偏移。</summary>
+        public void Follow(Transform target, float y, float minX,
+            float maxX = float.MaxValue, float offsetX = 1.5f)
         {
             _followTarget = target;
             _y = y;
             _minX = minX;
+            _maxX = maxX;
+            _followOffsetX = offsetX;
         }
 
         public void SetBackground(Color c)
@@ -69,8 +75,8 @@ namespace BistroBurrow.Core
         void LateUpdate()
         {
             // 跟随目标可能在怪物击杀/场景卸载时被销毁，必须判空
-            float wantX = _followTarget != null ? _followTarget.position.x + 1.5f : _targetX;
-            wantX = Mathf.Max(wantX, _minX);
+            float wantX = _followTarget != null ? _followTarget.position.x + _followOffsetX : _targetX;
+            wantX = Mathf.Clamp(wantX, _minX, _maxX);
             Vector3 p = transform.position;
             // 帧率无关的平滑插值（GDD §3.3 镜头平滑 Lerp 跟随）
             float t = 1f - Mathf.Exp(-LerpSpeed * Time.deltaTime);
