@@ -17,6 +17,13 @@ namespace BistroBurrow.Bistro
     {
         public StaffDef Def { get; private set; }
 
+        /// <summary>创始伙伴即老板（玩家自身角色），可被方向键直接操控。</summary>
+        public bool IsBoss => Def != null && Def.id == "custom_founder";
+        /// <summary>被玩家长按拖拽提在空中（AI 与 Tick 全停）。</summary>
+        public bool IsHeld { get; private set; }
+        /// <summary>老板被选中时为 true：AI 让位给玩家方向键操控。</summary>
+        public bool PlayerControlled { get; set; }
+
         BistroDirector _director;
         StaffState _state;
         Transform _body;
@@ -56,6 +63,8 @@ namespace BistroBurrow.Bistro
         /// <summary>由导演驱动；stoveBusy = 灶台当前有锅在烧（Cook 的干活动画开关）。</summary>
         public void Tick(float dt, bool stoveBusy, Vector2 restSpot)
         {
+            if (IsHeld) return;            // 被提在空中：一切行为暂停
+            if (PlayerControlled) return;  // 老板亲自操控：AI 让位（见 ManualMove）
             switch (Def.role)
             {
                 case "Cook":
@@ -130,6 +139,60 @@ namespace BistroBurrow.Bistro
             if (_spineAnim == anim) return;
             SpineActor.PlayIfExists(_spine, anim, true); // 缺该动画时内部兜底，不会僵住
             _spineAnim = anim;
+        }
+
+        // ---------- 拖拽 / 老板操控（BistroCameraController 调用） ----------
+
+        /// <summary>提起/放下。提起时播 Sit（小脚悬空感），放下回 Relax。</summary>
+        public void SetHeld(bool held)
+        {
+            IsHeld = held;
+            if (_sleepTag != null && held) _sleepTag.SetActive(false);
+            SetSpineAnim(held ? "Sit" : "Relax");
+            if (held) Juice.Pulse(_body, 1.12f);
+        }
+
+        /// <summary>拖拽中跟手（空中位置由控制器钳制）。</summary>
+        public void DragTo(Vector2 pos)
+        {
+            transform.position = new Vector3(pos.x, pos.y, transform.position.z);
+        }
+
+        /// <summary>落地安置：岗位锚点/巡场目标都迁到新位置，落地小弹。</summary>
+        public void PlaceAt(Vector2 ground)
+        {
+            transform.position = new Vector3(ground.x, ground.y, transform.position.z);
+            _home = ground;
+            _target = ground;
+            _wanderTimer = Random.Range(1.5f, 3f);
+            _resting = false; // 被拎走就不算趴沙发了；下帧 Tick 会按疲劳重新判定
+            Juice.PopIn(_body);
+        }
+
+        /// <summary>老板方向键操控：每帧调用，dir∈[-1,1]，0 表示站定（回 Relax）。</summary>
+        public void ManualMove(float dir, float dt)
+        {
+            bool moving = Mathf.Abs(dir) > 0.01f;
+            if (moving)
+            {
+                float nx = Mathf.Clamp(transform.position.x + dir * 2.6f * dt, -7f, 6.2f);
+                transform.position = new Vector3(nx, transform.position.y, transform.position.z);
+                _home = _target = new Vector2(nx, transform.position.y);
+                if (_spine != null)
+                {
+                    SetSpineAnim("Move");
+                    _spine.Skeleton.FlipX = dir < 0;
+                }
+                else if (_body != null)
+                {
+                    _body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(Time.time * 8f)) * 0.06f, 0f);
+                }
+            }
+            else if (!IsHeld)
+            {
+                SetSpineAnim("Relax");
+                if (_spine == null && _body != null) _body.localPosition = Vector3.zero;
+            }
         }
 
         void BuildVisual(StaffDef def)

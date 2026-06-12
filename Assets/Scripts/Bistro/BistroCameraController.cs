@@ -27,6 +27,13 @@ namespace BistroBurrow.Bistro
         bool _dragging;
         bool _dragMoved;
 
+        StaffAgent _pressedAgent;  // 按在员工身上（待判定：点选 or 长按提起）
+        float _pressStartTime;
+        Vector3 _pressMouse;
+        bool _lifting;             // 拖拽提起进行中
+        const float LiftHoldSeconds = 0.45f; // 长按判定时长
+        const float MinX = -7f, MaxX = 6.2f; // 店内可放置范围
+
         float _zoom = -10.5f;          // 透视模式期望机位 z（滚轮推拉）
         const float PanLimit = 5.5f;   // 镜头水平边界（舞台范围）
         const float PerspY = 0.4f;     // 透视模式镜头高度
@@ -78,7 +85,7 @@ namespace BistroBurrow.Bistro
             if (_gm == null || _gm.Phase != GamePhase.Day || _gm.UIPaused) return;
 
             if (_perspective) UpdateZoom();
-            UpdateKeyPan();
+            UpdateKeys();
             UpdateMouse();
         }
 
@@ -96,11 +103,20 @@ namespace BistroBurrow.Bistro
             ct.position = p;
         }
 
-        void UpdateKeyPan()
+        void UpdateKeys()
         {
-            float dir = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
+            float dir = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1f : 0f)
+                      - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1f : 0f);
+
+            // 老板被选中：方向键直接操控角色（镜头本就在跟随）
+            if (_selected != null && _selected.IsBoss && !_selected.IsHeld)
+            {
+                _selected.ManualMove(dir, Time.deltaTime);
+                return;
+            }
+
             if (Mathf.Abs(dir) < 0.5f) return;
-            // 键盘平移：停止跟随（保留选中标识），镜头交还玩家
+            // 普通模式：键盘平移镜头（停止跟随但保留选中标识）
             float x = Mathf.Clamp(_rig.transform.position.x + dir * 7f * Time.deltaTime, -PanLimit, PanLimit);
             _rig.PanTo(x, CamY());
         }
@@ -109,16 +125,46 @@ namespace BistroBurrow.Bistro
         {
             if (Input.GetMouseButtonDown(0) && !OverUI())
             {
-                _dragging = true;
-                _dragMoved = false;
-                _dragStartMouse = Input.mousePosition;
-                _dragStartCamX = _rig.transform.position.x;
+                _pressMouse = Input.mousePosition;
+                _pressedAgent = RaycastAgent(_pressMouse);
+                _lifting = false;
+                if (_pressedAgent != null)
+                {
+                    _pressStartTime = Time.unscaledTime; // 按在员工身上：等待点选/长按判定
+                }
+                else
+                {
+                    _dragging = true; // 按在空地：镜头拖拽平移
+                    _dragMoved = false;
+                    _dragStartMouse = _pressMouse;
+                    _dragStartCamX = _rig.transform.position.x;
+                }
             }
 
+            // ---- 按住员工：长按或拖动 → 提起；提起后跟手 ----
+            if (_pressedAgent != null && Input.GetMouseButton(0))
+            {
+                float movedPix = (Input.mousePosition - _pressMouse).magnitude;
+                if (!_lifting && (Time.unscaledTime - _pressStartTime > LiftHoldSeconds || movedPix > 14f))
+                {
+                    _lifting = true;
+                    _pressedAgent.SetHeld(true);
+                    SfxSynth.Play(SfxSynth.Id.Pickup, 0.4f);
+                }
+                if (_lifting)
+                {
+                    Vector3 w = MouseWorldOnCharPlane();
+                    _pressedAgent.DragTo(new Vector2(
+                        Mathf.Clamp(w.x, MinX, MaxX),
+                        Mathf.Clamp(w.y, BistroDirector.GroundY + 0.6f, BistroDirector.GroundY + 2.6f)));
+                }
+            }
+
+            // ---- 按住空地：镜头平移 ----
             if (_dragging && Input.GetMouseButton(0))
             {
                 float dxPix = Input.mousePosition.x - _dragStartMouse.x;
-                if (Mathf.Abs(dxPix) > 9f) _dragMoved = true; // 超过阈值才算拖拽（区分点选）
+                if (Mathf.Abs(dxPix) > 9f) _dragMoved = true; // 超过阈值才算拖拽（区分空地点击）
                 if (_dragMoved)
                 {
                     float worldPerPixel = VisibleWorldWidth() / Mathf.Max(1, Screen.width);
@@ -129,22 +175,43 @@ namespace BistroBurrow.Bistro
 
             if (Input.GetMouseButtonUp(0))
             {
-                bool wasDrag = _dragMoved;
+                if (_lifting)
+                {
+                    // 放下：落回地面，岗位/巡场锚点迁到新位置
+                    _pressedAgent.SetHeld(false);
+                    _pressedAgent.PlaceAt(new Vector2(
+                        Mathf.Clamp(_pressedAgent.transform.position.x, MinX, MaxX),
+                        BistroDirector.GroundY));
+                    SfxSynth.Play(SfxSynth.Id.Click, 0.4f);
+                }
+                else if (_pressedAgent != null)
+                {
+                    Select(_pressedAgent); // 短按未拖动 = 点选
+                }
+                else if (_dragging && !_dragMoved && !OverUI())
+                {
+                    Deselect(); // 点空地（未拖动）→ 取消选中
+                }
+                _pressedAgent = null;
+                _lifting = false;
                 _dragging = false;
-                if (wasDrag || OverUI()) return;
-                TrySelectUnderCursor();
             }
         }
 
-        void TrySelectUnderCursor()
+        StaffAgent RaycastAgent(Vector3 screenPos)
+        {
+            Ray ray = _rig.Cam.ScreenPointToRay(screenPos);
+            if (Physics.Raycast(ray, out RaycastHit hit, 200f))
+                return hit.collider.GetComponentInParent<StaffAgent>();
+            return null;
+        }
+
+        /// <summary>鼠标在角色平面（z=0）上的世界坐标（正交/透视通用）。</summary>
+        Vector3 MouseWorldOnCharPlane()
         {
             Ray ray = _rig.Cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out RaycastHit hit, 200f))
-            {
-                var agent = hit.collider.GetComponentInParent<StaffAgent>();
-                if (agent != null) { Select(agent); return; }
-            }
-            Deselect(); // 点到空地/家具 → 取消选中
+            float t = Mathf.Abs(ray.direction.z) < 1e-5f ? 0f : -ray.origin.z / ray.direction.z;
+            return ray.origin + ray.direction * Mathf.Max(0f, t);
         }
 
         public void Select(StaffAgent agent)
@@ -152,7 +219,8 @@ namespace BistroBurrow.Bistro
             if (agent == _selected) return;
             Deselect();
             _selected = agent;
-            _marker = SelectionMarker.Attach(agent.transform);
+            _marker = SelectionMarker.Attach(agent.transform, agent.IsBoss); // 老板=金色水晶
+            _selected.PlayerControlled = agent.IsBoss; // 老板选中即接管操控（方向键移动）
             // 相机居中跟随（offsetX=0），范围限制在舞台内
             _rig.Follow(agent.transform, CamY(), -PanLimit, PanLimit, 0f);
             SfxSynth.Play(SfxSynth.Id.Click, 0.35f);
@@ -162,8 +230,12 @@ namespace BistroBurrow.Bistro
         {
             if (_marker != null) Object.Destroy(_marker.gameObject);
             _marker = null;
-            if (_selected != null && _rig != null)
-                _rig.PanTo(Mathf.Clamp(_rig.transform.position.x, -PanLimit, PanLimit), CamY());
+            if (_selected != null)
+            {
+                _selected.PlayerControlled = false; // 交还 AI
+                if (_rig != null)
+                    _rig.PanTo(Mathf.Clamp(_rig.transform.position.x, -PanLimit, PanLimit), CamY());
+            }
             _selected = null;
         }
 
@@ -183,26 +255,30 @@ namespace BistroBurrow.Bistro
         }
     }
 
-    /// <summary>选中标识：头顶旋转绿水晶（双交叉菱形 + 柔光），自转 + 上下浮动。</summary>
+    /// <summary>选中标识：头顶旋转水晶（双交叉菱形 + 柔光），自转 + 上下浮动。员工绿色，老板金色。</summary>
     public class SelectionMarker : MonoBehaviour
     {
         Transform _spin;
+        bool _gold;
         const float BaseY = 2.35f; // 名牌(1.95)之上
 
-        public static SelectionMarker Attach(Transform owner)
+        public static SelectionMarker Attach(Transform owner, bool boss = false)
         {
             var go = new GameObject("SelectionMarker");
             go.transform.SetParent(owner, false);
-            return go.AddComponent<SelectionMarker>();
+            var m = go.AddComponent<SelectionMarker>();
+            m._gold = boss;
+            m.BuildVisual();
+            return m;
         }
 
-        void Awake()
+        void BuildVisual()
         {
             transform.localPosition = new Vector3(0f, BaseY, 0f);
             _spin = new GameObject("Spin").transform;
             _spin.SetParent(transform, false);
 
-            var gem = new Color(0.35f, 0.95f, 0.45f);
+            var gem = _gold ? new Color(1f, 0.84f, 0.32f) : new Color(0.35f, 0.95f, 0.45f);
             var a = SpriteFactory.NewSprite("DiamondA", _spin,
                 SpriteFactory.Rect(0.24f, 0.24f, gem, 0.03f), Vector2.zero, 58);
             a.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);

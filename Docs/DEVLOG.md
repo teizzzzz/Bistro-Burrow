@@ -2,6 +2,47 @@
 
 ---
 
+## 2026-06-13（十）· 长按拖拽员工 + 老板亲自操控
+
+### 1. 本次修改目标
+
+Sims 式直接干预：长按（0.45s）或按住拖动把员工提到空中、跟手移动、松手
+落地安置（岗位/巡场锚点随迁）；创始伙伴正名为"老板"（玩家自身角色），
+老板被选中时方向键直接操控走位，选中标识用金色区别于员工的绿色。
+
+### 2. 涉及文件及职责变动
+
+- **`Bistro/StaffAgent.cs`**：
+  - `IsBoss`（id==custom_founder）/`IsHeld`/`PlayerControlled` 三状态；
+    Tick 顶部短路（被提起=全停；老板操控=AI 让位）；
+  - `SetHeld`（提起播 Sit 悬空感，放下回 Relax，隐藏 Zzz）、`DragTo`（跟手）、
+    `PlaceAt`（落地 + _home/_target 随迁 + 落地小弹）、
+    `ManualMove`（方向键走位：Move 动画 + 朝向镜像 + 店内范围钳制）。
+- **`Bistro/BistroCameraController.cs`**：
+  - 鼠标按下先射线判定——按在员工身上走"点选/长按提起"分支，按在空地走
+    "镜头平移"分支（互不干扰）；长按 0.45s 或移动 >14px 触发提起，
+    跟手坐标经角色平面（z=0）反投影（正交/透视通用），高度钳制在空中带；
+  - `UpdateKeys`：老板被选中时 A/D/←/→ 操控老板（镜头本就在跟随），
+    否则保持镜头平移语义；
+  - Select/Deselect 维护 `PlayerControlled`；SelectionMarker 增加
+    老板金色（员工绿色）。
+- **`UI/FounderPanel.cs`**：displayName "（创始伙伴）"→"（老板）"。
+
+### 3. 验证记录（Unity MCP Play 实测，存档"阿布"）
+
+| 流程 | 结果 |
+|---|---|
+| 老板识别 | 阿布[老板]=IsBoss；选中 → 金色水晶 + PlayerControlled=true |
+| 方向键操控 | ManualMove 右行 0.5s 位移 1.30m、anim=Move、朝向正确；松键回 Relax |
+| 提起 | 悬空 y=0.3、anim=Sit、Tick 全停（截图 boss_lift_drag_v2.png：阿布悬在半空） |
+| 放下 | 落地 y=-1.6、anim=Relax、岗位锚点随迁 |
+| 回归 | 编译 0 错误；EditMode **20/20**（含上轮相机改动一并补跑） |
+
+> 备注：被提起的员工松手永远落回 GroundY（不会卡在空中/家具上）；
+> 黄昏冻结/面板暂停期间拖拽输入同样冻结。
+
+---
+
 ## 2026-06-13（九）· 基建式透视相机 + Sims 式点选员工/镜头跟随
 
 ### 1. 本次修改目标

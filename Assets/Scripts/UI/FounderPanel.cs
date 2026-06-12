@@ -203,7 +203,7 @@ namespace BistroBurrow.UI
             var founder = new StaffDef
             {
                 id = "custom_founder",
-                displayName = $"{name}（创始伙伴）",
+                displayName = $"{name}（老板）", // 创始伙伴即老板=玩家自身角色（可方向键操控/拖拽除外）
                 shortName = name,
                 role = _role,
                 // 创始伙伴用 Spine 小人：帮厨=白面鸮 / 采集员=安洁莉娜（资产缺失时 StaffAgent 自动回退拼装造型）
