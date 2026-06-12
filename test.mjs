@@ -135,5 +135,17 @@ ok("新手保护：前 2 晚减伤倍率配置有效（拟态怪 10 伤 → 6 �
   assert.ok(BAL.newbieDamageMultiplier > 0 && BAL.newbieDamageMultiplier < 1, "倍率应在 (0,1)");
   approx(F.actualDamage(10, 0) * BAL.newbieDamageMultiplier, 6, 0.01);
 });
+ok("员工属性：勤快 10 帮厨手速翻倍；勤快 7 派遣 +2；耐力 10 疲劳 40→24", () => {
+  approx(F.autoCookInterval(0.9, 10), 0.5, 0.001);
+  assert.equal(F.dispatchBonusYield(7), 2);
+  assert.equal(F.dispatchFatigueCost(40, 10), 24);
+  assert.equal(F.dispatchFatigueCost(40, 0), 40);
+});
+ok("配置员工均带属性值（勤快/耐力）", () => {
+  for (const s of CFG.staff) {
+    assert.ok(Number.isInteger(s.diligence) && s.diligence >= 0, s.id);
+    assert.ok(Number.isInteger(s.stamina) && s.stamina >= 0, s.id);
+  }
+});
 
 console.log(`\n全部通过：${passed} 项断言 ✓`);

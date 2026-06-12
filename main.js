@@ -626,11 +626,13 @@
     for (const st of S.staff) {
       const def = staffById[st.id];
       if (st.dispatchTonight && def?.role === "Gatherer") {
-        const n = BAL.dispatchYieldMin + ((Math.random() * (BAL.dispatchYieldMax - BAL.dispatchYieldMin + 1)) | 0);
+        // 员工属性效果：勤快加产量、耐力降疲劳（与 Unity 同公式）
+        const n = BAL.dispatchYieldMin + ((Math.random() * (BAL.dispatchYieldMax - BAL.dispatchYieldMin + 1)) | 0)
+          + F.dispatchBonusYield(def.diligence || 0);
         for (let i = 0; i < n; i++) {
           invAdd(BAL.dispatchLootPool[(Math.random() * BAL.dispatchLootPool.length) | 0], 1);
         }
-        st.fatigue = Math.min(100, st.fatigue + BAL.dispatchFatigueCost);
+        st.fatigue = Math.min(100, st.fatigue + F.dispatchFatigueCost(BAL.dispatchFatigueCost, def.stamina || 0));
       } else {
         st.fatigue = Math.max(0, st.fatigue - BAL.fatigueRecoverPerNight);
       }

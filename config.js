@@ -34,6 +34,7 @@
     "seasonStyleCoef": 1,
     "eventBonusCoef": 0,
     "tipFastServePercent": 25,
+    "autoCookBaseInterval": 0.9,
     "dispatchFatigueCost": 40,
     "fatigueRecoverPerNight": 30,
     "fatigueDispatchLimit": 80,
@@ -398,6 +399,8 @@
       "shortName": "莉珂",
       "role": "Cook",
       "look": "rabbit",
+      "diligence": 5,
+      "stamina": 4,
       "dailyWage": 15,
       "hireCost": 120,
       "colorHex": "#F2B8C6"
@@ -408,6 +411,8 @@
       "shortName": "加恩",
       "role": "Gatherer",
       "look": "adventurer",
+      "diligence": 3,
+      "stamina": 6,
       "dailyWage": 20,
       "hireCost": 150,
       "colorHex": "#7B9CD9"
@@ -418,6 +423,8 @@
       "shortName": "薇尔",
       "role": "Gatherer",
       "look": "hunter",
+      "diligence": 7,
+      "stamina": 5,
       "dailyWage": 35,
       "hireCost": 400,
       "colorHex": "#8FBF6B"
