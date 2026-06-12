@@ -72,8 +72,9 @@ namespace BistroBurrow.Bistro
         void Update()
         {
             // 只在白天且营业中模拟；黄昏/夜晚整体冻结（场景作为结算面板的背景板）。
+            // UIPaused：员工面板打开时同步冻结（顾客耐心/灶台/生成全停，玩家安心浏览）。
             // _gm.State 判空：编辑器 Play 中域重载会清空 GameManager 的运行时状态
-            if (_gm == null || _gm.State == null || _gm.Phase != GamePhase.Day || !_open) return;
+            if (_gm == null || _gm.State == null || _gm.Phase != GamePhase.Day || !_open || _gm.UIPaused) return;
             float dt = Time.deltaTime;
 
             SpawnTick(dt);

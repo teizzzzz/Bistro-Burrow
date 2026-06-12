@@ -14,17 +14,25 @@ namespace BistroBurrow.UI
     public class UIRoot : MonoBehaviour
     {
         GameManager _gm;
+        RectTransform _topBar;
         Text _topDay;
         Text _topClock;
         Text _topGold;
         Text _topPhase;
         Button _viewToggleBtn;
+        Button _staffBtn;
         Text _toastText;
         float _toastTimer;
         Image _fadeOverlay;
         Text _fadeMessage;
         bool _fading;
         SettlementPanel _settlement;
+        StaffPanel _staffPanel;
+        GameObject _menu;
+        Text _menuSaveSummary;
+        Button _menuContinueBtn;
+        Button _menuNewBtn;
+        bool _confirmingNewGame; // 「开新店」覆盖存档的二次确认态
 
         public static UIRoot Create(GameManager gm)
         {
@@ -33,9 +41,22 @@ namespace BistroBurrow.UI
             var ui = go.AddComponent<UIRoot>();
             ui._gm = gm;
             ui.Build();
-            // 任意状态变更（买装饰/解锁菜谱/金币变动）即刷新顶栏
-            if (gm != null && gm.State != null) gm.State.OnChanged += ui.RefreshTopBar;
             return ui;
+        }
+
+        // =====================================================================
+        // 存档状态绑定（State 在主菜单选择后才存在，因此动态绑定/解绑）
+        // =====================================================================
+
+        public void BindState(PlayerState state)
+        {
+            if (state != null) state.OnChanged += RefreshTopBar;
+            RefreshTopBar();
+        }
+
+        public void UnbindState(PlayerState state)
+        {
+            if (state != null) state.OnChanged -= RefreshTopBar;
         }
 
         void Build()
@@ -60,13 +81,20 @@ namespace BistroBurrow.UI
             UiFactory.Place((RectTransform)_topPhase.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(296, 0), new Vector2(170, 30));
 
             _topGold = UiFactory.Label(bar, "", 19, new Color(1f, 0.85f, 0.35f), TextAnchor.MiddleRight);
-            UiFactory.Place((RectTransform)_topGold.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-150, 0), new Vector2(220, 30));
+            UiFactory.Place((RectTransform)_topGold.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-232, 0), new Vector2(220, 30));
 
             _viewToggleBtn = UiFactory.TextButton(bar, "店内/店外", () =>
             {
                 if (_gm != null) _gm.ToggleBistroView();
             }, new Color(0.25f, 0.3f, 0.42f), Color.white, 16);
             UiFactory.Place((RectTransform)_viewToggleBtn.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-12, 0), new Vector2(124, 32));
+
+            _staffBtn = UiFactory.TextButton(bar, "员工", () =>
+            {
+                if (_gm != null) _gm.ToggleStaffPanel();
+            }, new Color(0.42f, 0.32f, 0.2f), Color.white, 16);
+            UiFactory.Place((RectTransform)_staffBtn.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-144, 0), new Vector2(76, 32));
+            _topBar = bar;
 
             // ---- 吐司 ----
             _toastText = UiFactory.Label(canvas.transform, "", 21, new Color(1f, 0.97f, 0.85f), TextAnchor.MiddleCenter, "Toast");
@@ -80,6 +108,12 @@ namespace BistroBurrow.UI
             _settlement.BuildShell(_gm);
             settlementGo.SetActive(false);
 
+            // ---- 白天员工管理面板 ----
+            _staffPanel = StaffPanel.Create(canvas.transform, _gm);
+
+            // ---- 主菜单（sort 150：盖住游戏 UI，低于黑场转场） ----
+            BuildMainMenu();
+
             // ---- 黑场转场（最上层，激活时拦截点击） ----
             Canvas fadeCanvas = UiFactory.CreateScreenCanvas("FadeCanvas", 200, transform);
             RectTransform fadeRt = UiFactory.Panel(fadeCanvas.transform, new Color(0f, 0f, 0f, 0f), "Fade");
@@ -92,6 +126,128 @@ namespace BistroBurrow.UI
         }
 
         // =====================================================================
+        // 主菜单
+        // =====================================================================
+
+        void BuildMainMenu()
+        {
+            Canvas menuCanvas = UiFactory.CreateScreenCanvas("MenuCanvas", 150, transform);
+            _menu = menuCanvas.gameObject;
+
+            // 背景：夜空→暖炉色的纵向渐变 + 三处灯光氛围
+            RectTransform bg = UiFactory.Panel(menuCanvas.transform, Color.white, "Bg");
+            var bgImg = bg.GetComponent<Image>();
+            bgImg.sprite = SpriteFactory.GradientRect(16f, 9f,
+                new Color(0.07f, 0.08f, 0.14f), new Color(0.22f, 0.15f, 0.11f), 0f);
+            UiFactory.FillParent(bg);
+
+            PlaceGlow(menuCanvas.transform, new Vector2(-380, 60), 520, new Color(1f, 0.72f, 0.38f, 0.20f));
+            PlaceGlow(menuCanvas.transform, new Vector2(330, -140), 420, new Color(1f, 0.62f, 0.30f, 0.16f));
+            PlaceGlow(menuCanvas.transform, new Vector2(120, 220), 360, new Color(0.75f, 0.85f, 1f, 0.10f));
+
+            Text title = UiFactory.Label(_menu.transform, "Bistro & Burrow", 64,
+                new Color(0.96f, 0.90f, 0.76f), TextAnchor.MiddleCenter, "Title");
+            UiFactory.Place((RectTransform)title.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -150), new Vector2(900, 80));
+
+            Text subtitle = UiFactory.Label(_menu.transform, "小馆与地穴 —— 白天喂饱冒险者，夜晚猎取魔物食材", 24,
+                new Color(0.8f, 0.76f, 0.68f), TextAnchor.MiddleCenter, "Subtitle");
+            UiFactory.Place((RectTransform)subtitle.transform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -222), new Vector2(900, 36));
+
+            _menuSaveSummary = UiFactory.Label(_menu.transform, "", 18,
+                new Color(0.72f, 0.78f, 0.7f), TextAnchor.MiddleCenter, "SaveSummary");
+            UiFactory.Place((RectTransform)_menuSaveSummary.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 64), new Vector2(800, 28));
+
+            _menuContinueBtn = UiFactory.TextButton(_menu.transform, "继续营业", () =>
+            {
+                SfxSynth.Play(SfxSynth.Id.DayStart, 0.45f);
+                _gm?.StartContinueGame();
+            }, new Color(0.8f, 0.55f, 0.25f), Color.white, 24);
+            UiFactory.Place((RectTransform)_menuContinueBtn.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(340, 58));
+
+            _menuNewBtn = UiFactory.TextButton(_menu.transform, "开新店", OnNewGameClicked,
+                new Color(0.3f, 0.38f, 0.52f), Color.white, 22);
+            UiFactory.Place((RectTransform)_menuNewBtn.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -76), new Vector2(340, 52));
+
+            Text hint = UiFactory.Label(_menu.transform,
+                "白天：点顾客气泡开火做菜 · 顶栏「员工」招聘派遣 ｜ 夜晚：A/D 移动 · 空格跳 · J 攻击 · 门口按 E 回家", 15,
+                new Color(0.6f, 0.6f, 0.62f), TextAnchor.MiddleCenter, "Hint");
+            UiFactory.Place((RectTransform)hint.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 28), new Vector2(1100, 24));
+
+            _menu.SetActive(false);
+        }
+
+        void PlaceGlow(Transform parent, Vector2 pos, float size, Color color)
+        {
+            var go = new GameObject("Glow", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.sprite = SpriteFactory.RadialGlow(4f, color);
+            img.raycastTarget = false;
+            UiFactory.Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, new Vector2(size, size));
+        }
+
+        /// <summary>「开新店」：存在旧档时二次确认，防误删进度。</summary>
+        void OnNewGameClicked()
+        {
+            if (SaveSystem.HasSave() && !_confirmingNewGame)
+            {
+                _confirmingNewGame = true;
+                SetButtonLabel(_menuNewBtn, "覆盖旧存档？再点一次确认");
+                var img = _menuNewBtn.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.72f, 0.3f, 0.26f);
+                return;
+            }
+            SfxSynth.Play(SfxSynth.Id.Unlock, 0.5f);
+            _gm?.StartNewGame();
+        }
+
+        static void SetButtonLabel(Button b, string label)
+        {
+            if (b == null) return;
+            Text t = b.GetComponentInChildren<Text>();
+            if (t != null) t.text = label;
+        }
+
+        public void ShowMainMenu()
+        {
+            // 收起一切游戏内 UI
+            if (_settlement != null) _settlement.gameObject.SetActive(false);
+            if (_staffPanel != null && _staffPanel.IsOpen) _staffPanel.Hide();
+            if (_topBar != null) _topBar.gameObject.SetActive(false);
+
+            // 刷新存档摘要与按钮态
+            _confirmingNewGame = false;
+            SetButtonLabel(_menuNewBtn, "开新店");
+            var img = _menuNewBtn != null ? _menuNewBtn.GetComponent<Image>() : null;
+            if (img != null) img.color = new Color(0.3f, 0.38f, 0.52f);
+
+            SaveData save = SaveSystem.Peek();
+            if (save != null)
+            {
+                ShopLevelDef lvl = ConfigService.GetShopLevel(save.shopLevel);
+                _menuSaveSummary.text = $"存档：第 {save.dayIndex} 天 · {lvl?.title ?? "?"} · 金币 {save.gold} · 菜谱 {save.unlockedRecipes?.Count ?? 0} 道 · 员工 {save.staff?.Count ?? 0} 人";
+                _menuContinueBtn.interactable = true;
+                var cImg = _menuContinueBtn.GetComponent<Image>();
+                if (cImg != null) cImg.color = new Color(0.8f, 0.55f, 0.25f);
+            }
+            else
+            {
+                _menuSaveSummary.text = "尚无存档——点「开新店」开始你的魔物美食生意";
+                _menuContinueBtn.interactable = false;
+                var cImg = _menuContinueBtn.GetComponent<Image>();
+                if (cImg != null) cImg.color = new Color(0.3f, 0.3f, 0.33f);
+            }
+
+            if (_menu != null) _menu.SetActive(true);
+        }
+
+        public void HideMainMenu()
+        {
+            if (_menu != null) _menu.SetActive(false);
+            if (_topBar != null) _topBar.gameObject.SetActive(true);
+        }
+
+        // =====================================================================
         // 阶段 UI 模式
         // =====================================================================
 
@@ -99,12 +255,15 @@ namespace BistroBurrow.UI
         {
             if (_settlement != null) _settlement.gameObject.SetActive(false);
             if (_viewToggleBtn != null) _viewToggleBtn.gameObject.SetActive(true);
+            if (_staffBtn != null) _staffBtn.gameObject.SetActive(true);
             RefreshTopBar();
         }
 
         public void EnterDuskMode(DayReport report)
         {
             if (_viewToggleBtn != null) _viewToggleBtn.gameObject.SetActive(false);
+            if (_staffBtn != null) _staffBtn.gameObject.SetActive(false);
+            if (_staffPanel != null && _staffPanel.IsOpen) _staffPanel.Hide();
             if (_settlement != null)
             {
                 _settlement.gameObject.SetActive(true);
@@ -117,7 +276,25 @@ namespace BistroBurrow.UI
         {
             if (_settlement != null) _settlement.gameObject.SetActive(false);
             if (_viewToggleBtn != null) _viewToggleBtn.gameObject.SetActive(false);
+            if (_staffBtn != null) _staffBtn.gameObject.SetActive(false);
+            if (_staffPanel != null && _staffPanel.IsOpen) _staffPanel.Hide();
             RefreshTopBar();
+        }
+
+        // =====================================================================
+        // 员工面板
+        // =====================================================================
+
+        public void ToggleStaffPanel()
+        {
+            if (_staffPanel == null) return;
+            if (_staffPanel.IsOpen) _staffPanel.Hide();
+            else _staffPanel.Show();
+        }
+
+        public void CloseStaffPanel()
+        {
+            if (_staffPanel != null && _staffPanel.IsOpen) _staffPanel.Hide();
         }
 
         // =====================================================================
@@ -126,11 +303,13 @@ namespace BistroBurrow.UI
 
         public void RefreshTopBar()
         {
-            if (_gm == null) return;
+            // State 在主菜单阶段为 null（尚未读档/开新档）
+            if (_gm == null || _gm.State == null) return;
             if (_topDay != null) _topDay.text = $"第 {_gm.State.DayIndex} 天";
             if (_topClock != null && _gm.Clock != null) _topClock.text = _gm.Clock.TimeText;
             if (_topGold != null) _topGold.text = $"金币 {_gm.State.Gold}";
-            if (_topPhase != null) _topPhase.text = PhaseLabel(_gm.Phase);
+            if (_topPhase != null)
+                _topPhase.text = _gm.UIPaused && _gm.Phase == GamePhase.Day ? "已暂停" : PhaseLabel(_gm.Phase);
         }
 
         static string PhaseLabel(GamePhase phase)
@@ -138,6 +317,7 @@ namespace BistroBurrow.UI
             // 刻意不用 emoji：子集字体/WebGL 下 emoji 字形大概率缺失
             switch (phase)
             {
+                case GamePhase.Menu: return "主菜单";
                 case GamePhase.Day: return "营业中";
                 case GamePhase.Dusk: return "黄昏结算";
                 case GamePhase.Night: return "地穴探索";

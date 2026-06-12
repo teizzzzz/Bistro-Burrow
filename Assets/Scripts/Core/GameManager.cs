@@ -11,6 +11,7 @@ namespace BistroBurrow.Core
     public enum GamePhase
     {
         Boot,   // 启动加载
+        Menu,   // 主菜单（开始界面：继续营业 / 开新店）
         Day,    // 08:00-18:00 白昼营业（BistroScene）
         Dusk,   // 18:00-19:00 黄昏结算（经营大盘 UI）
         Night,  // 19:00-08:00 黑夜探索（ExpeditionScene）或就寝跳过
@@ -32,6 +33,9 @@ namespace BistroBurrow.Core
         public DayReport Report { get; private set; }
         public CameraRig CamRig { get; private set; }
         public UIRoot UI { get; private set; }
+
+        /// <summary>白天 UI 面板（员工管理等）打开时为 true：冻结时钟与店内模拟。</summary>
+        public bool UIPaused { get; set; }
 
         Scene _bistroScene;
         Scene _expeditionScene;
@@ -62,7 +66,7 @@ namespace BistroBurrow.Core
             Application.targetFrameRate = 60;
 
             ConfigService.LoadAll();
-            State = SaveSystem.LoadOrNull() ?? PlayerState.CreateNew();
+            // 注意：State 不在这里加载——由主菜单的「继续营业/开新店」决定
             Clock = new GameClock(ConfigService.Balance.gameMinutesPerRealSecond);
             CamRig = CameraRig.Create();
             UI = UIRoot.Create(this);
@@ -71,7 +75,69 @@ namespace BistroBurrow.Core
         void Start()
         {
             // Awake 里若发生单例自毁，Start 不会再执行到这（对象已销毁）
+            ShowMainMenu();
+        }
+
+        // =====================================================================
+        // 主菜单 / 存档入口
+        // =====================================================================
+
+        /// <summary>进入主菜单（启动时与「保存并回主菜单」共用）。</summary>
+        public void ShowMainMenu()
+        {
+            Phase = GamePhase.Menu;
+            UIPaused = false;
+            CamRig.SetBackground(new Color(0.06f, 0.06f, 0.10f));
+            CamRig.SnapTo(0f, 0f);
+            UI.ShowMainMenu();
+        }
+
+        /// <summary>主菜单「继续营业」：读档进入白天。</summary>
+        public void StartContinueGame()
+        {
+            if (Phase != GamePhase.Menu) return;
+            PlayerState loaded = SaveSystem.LoadOrNull();
+            if (loaded == null)
+            {
+                UI.Toast("没有找到存档，先开一家新店吧！");
+                return;
+            }
+            State = loaded;
+            BootIntoDay();
+        }
+
+        /// <summary>主菜单「开新店」：覆盖确认由 UI 侧完成，这里直接执行。</summary>
+        public void StartNewGame()
+        {
+            if (Phase != GamePhase.Menu) return;
+            SaveSystem.Wipe();
+            State = PlayerState.CreateNew();
+            SaveSystem.Save(State);
+            BootIntoDay();
+        }
+
+        /// <summary>黄昏结算面板「保存并回主菜单」。</summary>
+        public void ReturnToMenuFromDusk()
+        {
+            if (Phase != GamePhase.Dusk || State == null) return;
+            SaveSystem.Save(State);
+            UnloadBistro();
+            UI.UnbindState(State);
+            State = null;
+            ShowMainMenu();
+        }
+
+        void BootIntoDay()
+        {
+            UI.BindState(State);
+            UI.HideMainMenu();
             EnterDay();
+        }
+
+        void OnApplicationQuit()
+        {
+            // 桌面端关窗兜底存档（WebGL 关标签页不可靠，靠黄昏/黎明的阶段存档）
+            if (State != null) SaveSystem.Save(State);
         }
 
         void Update()
@@ -86,9 +152,12 @@ namespace BistroBurrow.Core
             switch (Phase)
             {
                 case GamePhase.Day:
-                    Clock.Tick(Time.deltaTime);
+                    if (!UIPaused) // 员工面板等 UI 打开时冻结时间（顾客耐心也随导演一起停）
+                    {
+                        Clock.Tick(Time.deltaTime);
+                        if (Clock.HourFloat >= bal.dayEndHour) { UI.RefreshTopBar(); EnterDusk(); break; }
+                    }
                     UI.RefreshTopBar();
-                    if (Clock.HourFloat >= bal.dayEndHour) EnterDusk();
                     break;
 
                 case GamePhase.Night:
@@ -131,10 +200,18 @@ namespace BistroBurrow.Core
             if (Phase == GamePhase.Day && _bistro != null) _bistro.ToggleView();
         }
 
+        /// <summary>顶栏按钮：员工管理面板（仅白天；打开期间 UIPaused 冻结模拟）。</summary>
+        public void ToggleStaffPanel()
+        {
+            if (Phase != GamePhase.Day) return;
+            UI.ToggleStaffPanel();
+        }
+
         /// <summary>黄昏：冻结营业，扣除工资，弹出经营大盘（结算面板）。</summary>
         void EnterDusk()
         {
             Phase = GamePhase.Dusk;
+            UIPaused = false;
             Clock.SetHour(ConfigService.Balance.dayEndHour);
 
             if (_bistro != null) _bistro.FinishDay(); // 停止生成顾客、清场统计
@@ -143,6 +220,7 @@ namespace BistroBurrow.Core
             Report.wages = State.TotalDailyWages();
             if (Report.wages > 0) State.AddGold(-Report.wages);
 
+            SaveSystem.Save(State); // 阶段存档：当日经营成果立即落盘
             UI.EnterDuskMode(Report);
         }
 

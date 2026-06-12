@@ -67,19 +67,24 @@ namespace BistroBurrow.UI
             _content.pivot = new Vector2(0.5f, 1f);
             _content.gameObject.AddComponent<RectMask2D>();
 
-            // 底部夜间行动（居中排列）
-            RectTransform actions = UiFactory.HorizontalGroup(window, 18f, "Actions", TextAnchor.MiddleCenter);
-            UiFactory.Place(actions, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 18), new Vector2(720, 52));
+            // 底部夜间行动（居中排列）+ 保存退出
+            RectTransform actions = UiFactory.HorizontalGroup(window, 14f, "Actions", TextAnchor.MiddleCenter);
+            UiFactory.Place(actions, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 18), new Vector2(960, 52));
             Button goBtn = UiFactory.TextButton(actions, "亲自下地穴（动作采集）", () =>
             {
                 if (_gm != null) _gm.BeginNightExpedition();
-            }, BtnMain, Color.white, 20);
-            UiFactory.SetLayoutSize(goBtn, 320, 52);
+            }, BtnMain, Color.white, 19);
+            UiFactory.SetLayoutSize(goBtn, 300, 52);
             Button sleepBtn = UiFactory.TextButton(actions, "派遣并就寝（跳过夜晚）", () =>
             {
                 if (_gm != null) _gm.SleepThrough();
-            }, BtnSub, Color.white, 20);
-            UiFactory.SetLayoutSize(sleepBtn, 320, 52);
+            }, BtnSub, Color.white, 19);
+            UiFactory.SetLayoutSize(sleepBtn, 300, 52);
+            Button quitBtn = UiFactory.TextButton(actions, "保存并回主菜单", () =>
+            {
+                if (_gm != null) _gm.ReturnToMenuFromDusk();
+            }, new Color(0.32f, 0.3f, 0.34f), new Color(0.9f, 0.88f, 0.84f), 18);
+            UiFactory.SetLayoutSize(quitBtn, 220, 52);
         }
 
         /// <summary>黄昏弹出时由 UIRoot 调用。</summary>
@@ -322,58 +327,12 @@ namespace BistroBurrow.UI
             }
         }
 
-        // ---- ④ 人事派遣（GDD §2.1 挂机派遣 / 疲劳值） ----
+        // ---- ④ 人事派遣（GDD §2.1 挂机派遣 / 疲劳值；与白天员工面板共用花名册） ----
         void BuildStaffTab()
         {
             RectTransform list = NewList();
             ListFill(list);
-            BalanceDef bal = ConfigService.Balance;
-            AddLine(list, $"帮厨自动开火做菜；采集员可在夜晚派遣（疲劳 +{bal.dispatchFatigueCost}，≥{bal.fatigueDispatchLimit} 不可派遣；留守每晚恢复 {bal.fatigueRecoverPerNight}）。", TextDim, 16);
-
-            if (ConfigService.Staffs != null)
-            {
-                foreach (StaffDef def in ConfigService.Staffs)
-                {
-                    if (def == null) continue;
-                    StaffState st = _gm.State.FindStaff(def.id);
-                    string roleText = def.role == "Cook" ? "帮厨" : "采集员";
-
-                    if (st == null)
-                    {
-                        bool affordable = _gm.State.Gold >= def.hireCost;
-                        string gap = affordable ? "" : $"（还差 {def.hireCost - _gm.State.Gold} 金币）";
-                        AddRow(list, $"{def.displayName}（{roleText}）　日薪 {def.dailyWage}　签约费 {def.hireCost}{gap}",
-                            affordable ? "雇佣" : "金币不足", affordable, () =>
-                            {
-                                if (_gm.State.TryHireStaff(def))
-                                {
-                                    SfxSynth.Play(SfxSynth.Id.Coin, 0.4f);
-                                    _gm.UI.Toast($"{def.displayName} 入职了！明日清晨到岗。");
-                                    Rebuild();
-                                }
-                            });
-                    }
-                    else if (def.role == "Gatherer")
-                    {
-                        bool tooTired = st.fatigue >= bal.fatigueDispatchLimit;
-                        string desc = $"{def.displayName}（{roleText}）　疲劳 {st.fatigue}/100" + (tooTired ? "　——累瘫了，今晚必须休息" : "");
-                        AddRow(list, desc,
-                            st.dispatchTonight ? "取消派遣" : "今晚派遣",
-                            !tooTired || st.dispatchTonight, () =>
-                            {
-                                st.dispatchTonight = !st.dispatchTonight;
-                                _gm.UI.Toast(st.dispatchTonight
-                                    ? $"{def.displayName} 今晚外出采集。"
-                                    : $"{def.displayName} 今晚留守休息。");
-                                Rebuild();
-                            }, st.dispatchTonight ? BtnSub : BtnMain);
-                    }
-                    else
-                    {
-                        AddRow(list, $"{def.displayName}（{roleText}）　已入职，白天自动开火做菜", null, false, null);
-                    }
-                }
-            }
+            StaffRosterUi.BuildInto(list, _gm, Rebuild);
         }
 
         // ---- ⑤ 战前用餐（GDD §5.3 以吃代练：Def_buff 由料理决定） ----

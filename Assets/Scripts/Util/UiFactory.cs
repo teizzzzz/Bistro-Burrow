@@ -124,7 +124,11 @@ namespace BistroBurrow.Util
             return btn;
         }
 
-        /// <summary>纵向自动布局容器（结算面板列表用）。</summary>
+        /// <summary>
+        /// 纵向自动布局容器（结算面板列表用）。
+        /// childControlHeight 必须为 true：为 false 时子元素按默认 sizeDelta（100px）排布，
+        /// LayoutElement 指定的行高被无视，列表会被撑出裁剪区（员工面板曾因此丢行）。
+        /// </summary>
         public static RectTransform VerticalGroup(Transform parent, float spacing, RectOffset padding, string name = "VGroup")
         {
             var go = new GameObject(name);
@@ -134,7 +138,7 @@ namespace BistroBurrow.Util
             v.padding = padding;
             v.childAlignment = TextAnchor.UpperLeft;
             v.childControlWidth = true;
-            v.childControlHeight = false;
+            v.childControlHeight = true;
             v.childForceExpandWidth = true;
             v.childForceExpandHeight = false;
             return (RectTransform)go.transform;

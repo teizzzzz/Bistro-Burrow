@@ -55,5 +55,25 @@ namespace BistroBurrow.Core
             PlayerPrefs.DeleteKey(Key);
             PlayerPrefs.Save();
         }
+
+        /// <summary>是否存在可读存档（主菜单按钮可用性判断）。</summary>
+        public static bool HasSave() => Peek() != null;
+
+        /// <summary>只读窥探存档内容（主菜单摘要展示），不构建运行时状态。</summary>
+        public static SaveData Peek()
+        {
+            if (!PlayerPrefs.HasKey(Key)) return null;
+            try
+            {
+                string json = PlayerPrefs.GetString(Key, null);
+                if (string.IsNullOrEmpty(json)) return null;
+                SaveData data = JsonUtility.FromJson<SaveData>(json);
+                return (data != null && data.version >= 1) ? data : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }
