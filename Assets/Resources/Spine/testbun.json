@@ -1,0 +1,61 @@
+{
+"skeleton": { "hash": "bistroBurrowTestBun", "spine": "3.5.51", "width": 60, "height": 148, "images": "" },
+"bones": [
+	{ "name": "root" },
+	{ "name": "body", "parent": "root", "length": 40 },
+	{ "name": "head", "parent": "body", "length": 30, "y": 78 }
+],
+"slots": [
+	{ "name": "body", "bone": "body", "attachment": "body" },
+	{ "name": "head", "bone": "head", "attachment": "head" }
+],
+"skins": {
+	"default": {
+		"body": {
+			"body": { "y": 40, "width": 60, "height": 80 }
+		},
+		"head": {
+			"head": { "y": 20, "width": 56, "height": 70 }
+		}
+	}
+},
+"animations": {
+	"idle": {
+		"bones": {
+			"body": {
+				"scale": [
+					{ "time": 0, "x": 1, "y": 1 },
+					{ "time": 0.6, "x": 1.04, "y": 0.96 },
+					{ "time": 1.2, "x": 1, "y": 1 }
+				]
+			},
+			"head": {
+				"rotate": [
+					{ "time": 0, "angle": 0 },
+					{ "time": 0.3, "angle": 6 },
+					{ "time": 0.9, "angle": -6 },
+					{ "time": 1.2, "angle": 0 }
+				]
+			}
+		}
+	},
+	"hop": {
+		"bones": {
+			"root": {
+				"translate": [
+					{ "time": 0, "x": 0, "y": 0 },
+					{ "time": 0.2, "x": 0, "y": 24 },
+					{ "time": 0.4, "x": 0, "y": 0 }
+				]
+			},
+			"body": {
+				"scale": [
+					{ "time": 0, "x": 1.1, "y": 0.9 },
+					{ "time": 0.2, "x": 0.95, "y": 1.08 },
+					{ "time": 0.4, "x": 1.1, "y": 0.9 }
+				]
+			}
+		}
+	}
+}
+}

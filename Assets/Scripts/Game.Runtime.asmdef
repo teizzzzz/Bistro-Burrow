@@ -1,7 +1,7 @@
 {
     "name": "Game.Runtime",
     "rootNamespace": "BistroBurrow",
-    "references": [],
+    "references": ["Spine.Runtime"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

@@ -2,6 +2,49 @@
 
 ---
 
+## 2026-06-13（四）· 接入 Spine 3.5.51 运行时（骨骼小人管线）
+
+### 1. 本次修改目标
+
+让项目能直接使用 Spine **3.5.51** 导出的骨骼小人：内置官方 spine-unity 3.5
+运行时并移植到 Unity 6，打通"丢三件套→自动生成资产→运行时按名生成小人"的
+完整管线，员工造型支持 `spine:` 前缀零代码切换。
+
+### 2. 涉及文件及职责变动
+
+- **`Assets/Spine/`**（新增）：spine-runtimes 仓库 3.5 分支官方源码
+  （spine-csharp + spine-unity，105 个 .cs）。Unity 6 移植仅 2 处：
+  `SpineMesh.cs` 两个 `Color32` 局部变量补 `default` 初始化（CS0165）、
+  `SkeletonDataAssetInspector.cs` 移除 `new Texture()`（CS0122）。
+- **程序集重组**：原版 10 个散落的 Editor 目录集中到 `Assets/Spine/Editor/`，
+  新增 `Spine.Runtime.asmdef` + `Spine.Editor.asmdef`；`Game.Runtime` 引用
+  `Spine.Runtime`（asmdef 体系下 Editor 目录不再特殊处理，必须独立程序集）。
+- **`Util/SpineActor.cs`**（新增）：运行时加载器——`Spawn(名字, …)` 从
+  `Resources/Spine/<名字>_SkeletonData` 生成 SkeletonAnimation；
+  `PlayIfExists` 安全播动画；`Exists` 供回退判断。
+- **`Bistro/StaffAgent.cs`**：`look = "spine:<名字>"` → 员工实体改用 Spine
+  小人渲染（默认循环 idle），资产缺失自动回退拼装造型。
+- **`Assets/Resources/Spine/testbun.*`**（新增）：手写 3.5.51 格式验证资源
+  （奶油小兔：3 骨骼/2 插槽/idle+hop 双动画 + libgdx 图集 + 代码生成贴图）。
+- **`Docs/SPINE.md`**（新增）：资源放置约定（.atlas 须改 .atlas.txt）、
+  两种使用方式、版本兼容警告（3.5 数据≠4.x 运行时）。
+
+### 3. 验证记录（Unity MCP Play 实测）
+
+| 流程 | 结果 |
+|---|---|
+| 编译移植 | 2 个错误修复后 0 错误（余为过期 API 警告，无害） |
+| 自动导入 | testbun 三件套 → `_Atlas/_Material/_SkeletonData` 全自动生成 |
+| 数据解析 | `SkeletonData version=3.5.51`，3 骨骼/2 插槽/idle 1.2s + hop 0.4s |
+| 运行时生成 | Play 中 `SpineActor.Spawn` 出网格 8 顶点，店内截图渲染正确（spine35_testbun_in_bistro.png） |
+| 动画驱动 | t=0.23s 时头部 4.55°，与关键帧插值理论值 4.6° 一致；身体 squash 0.985 生效 |
+| 回归 | EditMode **20/20**；webdemo **28/28**（镜像不渲染 Spine，纯视觉层差异） |
+
+> 备注：3.5 与 4.x 运行时互不兼容，本项目锁定 3.5.51；若未来要换 4.x 小人，
+> 需整体替换 `Assets/Spine/` 并重导所有骨骼资源。
+
+---
+
 ## 2026-06-13（三）· 三档位存档 + 创始伙伴定制（取名/职业/属性加点）
 
 ### 1. 本次修改目标

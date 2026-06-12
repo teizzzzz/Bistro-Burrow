@@ -114,6 +114,18 @@ namespace BistroBurrow.Bistro
 
             _body = new GameObject("Body").transform;
             _body.SetParent(transform, false);
+
+            // look = "spine:<骨骼名>" → 使用 Spine 3.5 小人（资源缺失回退到拼装造型）
+            if (!string.IsNullOrEmpty(def.look) && def.look.StartsWith("spine:"))
+            {
+                string skel = def.look.Substring("spine:".Length);
+                if (SpineActor.Spawn(skel, _body, Vector2.zero, "idle", true, 20) != null)
+                {
+                    BuildNameTag(def);
+                    BuildSleepTag();
+                    return;
+                }
+            }
             SpriteFactory.NewSprite("Torso", _body,
                 SpriteFactory.GradientRect(0.55f, 0.85f, toneLight, tone, 0.16f), new Vector2(0f, 0.62f), 20);
             SpriteFactory.NewSprite("Head", _body,
