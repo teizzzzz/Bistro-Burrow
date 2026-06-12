@@ -18,7 +18,16 @@ namespace BistroBurrow.Util
         /// <summary>对应骨骼资产是否存在（look 配置回退判断用）。</summary>
         public static bool Exists(string skeletonName)
         {
-            return Resources.Load<SkeletonDataAsset>("Spine/" + skeletonName + "_SkeletonData") != null;
+            return LoadDataAsset(skeletonName) != null;
+        }
+
+        /// <summary>支持两种布局：Spine/&lt;名&gt;_SkeletonData 或 Spine/&lt;名&gt;/&lt;名&gt;_SkeletonData。</summary>
+        static SkeletonDataAsset LoadDataAsset(string skeletonName)
+        {
+            var asset = Resources.Load<SkeletonDataAsset>("Spine/" + skeletonName + "/" + skeletonName + "_SkeletonData");
+            if (asset == null)
+                asset = Resources.Load<SkeletonDataAsset>("Spine/" + skeletonName + "_SkeletonData");
+            return asset;
         }
 
         /// <summary>
@@ -28,7 +37,7 @@ namespace BistroBurrow.Util
         public static SkeletonAnimation Spawn(string skeletonName, Transform parent, Vector2 localPos,
             string anim = "idle", bool loop = true, int sortingOrder = 20, float scale = 1f)
         {
-            var dataAsset = Resources.Load<SkeletonDataAsset>("Spine/" + skeletonName + "_SkeletonData");
+            var dataAsset = LoadDataAsset(skeletonName);
             if (dataAsset == null)
             {
                 Debug.LogWarning($"[SpineActor] 未找到骨骼资产 Resources/Spine/{skeletonName}_SkeletonData，" +
@@ -50,14 +59,26 @@ namespace BistroBurrow.Util
             return sa;
         }
 
-        /// <summary>播放指定动画；骨骼里没有该动画时保持现状并返回 false（不抛异常）。</summary>
+        /// <summary>
+        /// 播放指定动画。先精确匹配，再大小写不敏感匹配（方舟系小人动画名是 Idle/Move 大写开头），
+        /// 仍找不到时回退到骨骼的第一个动画——保证小人永远不会摆出 setup pose 僵住。
+        /// </summary>
         public static bool PlayIfExists(SkeletonAnimation sa, string anim, bool loop)
         {
-            if (sa == null || string.IsNullOrEmpty(anim)) return false;
+            if (sa == null) return false;
             var data = sa.SkeletonDataAsset != null ? sa.SkeletonDataAsset.GetSkeletonData(true) : null;
-            if (data == null || data.FindAnimation(anim) == null) return false;
-            sa.state.SetAnimation(0, anim, loop);
-            return true;
+            if (data == null || data.Animations.Count == 0) return false;
+
+            Spine.Animation found = string.IsNullOrEmpty(anim) ? null : data.FindAnimation(anim);
+            if (found == null && !string.IsNullOrEmpty(anim))
+            {
+                foreach (var a in data.Animations)
+                    if (string.Equals(a.Name, anim, System.StringComparison.OrdinalIgnoreCase)) { found = a; break; }
+            }
+            bool exact = found != null;
+            if (found == null) found = data.Animations.Items[0];
+            sa.state.SetAnimation(0, found, loop);
+            return exact;
         }
     }
 }

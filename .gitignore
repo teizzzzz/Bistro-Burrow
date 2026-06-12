@@ -40,3 +40,8 @@ Thumbs.db
 # Node（webdemo 测试无依赖，保险起见）
 node_modules/
 scripts/.charset.txt
+
+# 第三方版权 Spine 素材：仅本地测试，禁止入库/发行
+SpineRaw/
+Assets/Resources/Spine/ak_*/
+Assets/Resources/Spine/ak_*.meta

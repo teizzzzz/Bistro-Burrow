@@ -2,6 +2,46 @@
 
 ---
 
+## 2026-06-13（五）· 真实 Spine 3.5.51 小人上岗（6 角色 + 动画状态机）
+
+### 1. 本次修改目标
+
+用户放入 6 套真实 Spine 3.5.51 基建小人（第三方提取素材，本地验证用），
+接到员工系统：三名可雇佣员工 + 创始伙伴全部换成骨骼小人，并按行为驱动
+Relax/Move/Interact/Sleep 动画与朝向镜像。
+
+### 2. 涉及文件及职责变动
+
+- **素材整理**：55MB/2723 张图的原始库移出 Assets 到 `SpineRaw/`（避免全量
+  打包+导入）；每角色仅取默认皮肤基建小人三件套规范化拷入
+  `Resources/Spine/ak_<代号>/`。**ak_* 与 SpineRaw/ 已入 .gitignore——
+  版权素材禁止入库/发行**。
+- **`Util/SpineActor.cs`**：支持子文件夹布局（`Spine/<名>/<名>_SkeletonData`）；
+  `PlayIfExists` 升级为 精确→大小写不敏感→首个动画 三级兜底。
+- **`Bistro/StaffAgent.cs`**：Spine 小人动画状态机——巡场 `Move`（按方向
+  FlipX 镜像）/待机 `Relax`/帮厨开火 `Interact`/疲劳睡沙发 `Sleep`；
+  统一 0.75 体型缩放（原始 ~2.1m→~1.6m，名牌 1.95m 不被挡）。
+- **`staff.json`**：莉珂=spine:ak_amiya（兔耳对兔耳）、加恩=spine:ak_peacok、
+  薇尔=spine:ak_platnm；`FounderPanel`：帮厨=ak_plosis、采集员=ak_aglina。
+- **`Docs/SPINE.md`**：补关键坑——本运行时（3.5 分支末期）二进制读取器混入
+  3.6 双色字段，读标准 3.5.51 `.skel` 必越界，**必须用 .json**；
+  及 `_SkeletonData` 缺失时的手动补建方法。
+
+### 3. 验证记录（Unity MCP Play 实测）
+
+| 流程 | 结果 |
+|---|---|
+| .skel 二进制 | 6/6 解析失败（IndexOutOfBounds@SkeletonBinary:179，槽位双色字段错位）→ 改用 .json |
+| .json 解析 | 6/6 成功，v3.5.51，动画集 Default/Interact/Move/Relax/Sit/Sleep |
+| 店内上岗 | 三员工实体=对应骨骼小人，世界身高 1.5~1.7m，名牌正常露出（截图 ak_spine_staff_v2_scaled.png） |
+| 动画状态机 | 薇尔巡场 Move、加恩到位 Relax+朝左镜像保持、莉珂守灶台 Relax；切换无轨道重置抖动 |
+| 回归 | 编译 0 错误；webdemo 28/28（config 重新生成，look 字段仅 Unity 端消费） |
+
+> 备注：素材为第三方游戏提取物，仅作本地玩法/管线验证；上架前必须替换为
+> 自有美术（管线已就绪，三件套即放即用）。
+
+---
+
 ## 2026-06-13（四）· 接入 Spine 3.5.51 运行时（骨骼小人管线）
 
 ### 1. 本次修改目标

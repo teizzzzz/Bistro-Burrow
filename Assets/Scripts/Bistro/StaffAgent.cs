@@ -20,6 +20,8 @@ namespace BistroBurrow.Bistro
         BistroDirector _director;
         StaffState _state;
         Transform _body;
+        Spine.Unity.SkeletonAnimation _spine;   // look=spine: 时的骨骼小人（否则为 null）
+        string _spineAnim;                       // 当前骨骼动画名（避免每帧重设轨道）
         GameObject _sleepTag;       // "Zzz" 名牌（休息时显示）
         Vector2 _home;              // 岗位锚点（Cook=灶台旁；Gatherer=巡场起点）
         Vector2 _target;
@@ -52,8 +54,13 @@ namespace BistroBurrow.Bistro
             switch (Def.role)
             {
                 case "Cook":
-                    // 帮厨守灶台：有锅时小幅高频律动表示忙碌，没锅时轻微呼吸感
-                    if (_body != null)
+                    // 帮厨守灶台：Spine 小人有锅时播 Interact（基建干活动作），没锅时 Relax；
+                    // 拼装造型保留原律动（有锅小幅高频，没锅呼吸感）
+                    if (_spine != null)
+                    {
+                        SetSpineAnim(stoveBusy ? "Interact" : "Relax");
+                    }
+                    else if (_body != null)
                     {
                         float amp = stoveBusy ? 0.07f : 0.02f;
                         float freq = stoveBusy ? 11f : 2.2f;
@@ -74,7 +81,8 @@ namespace BistroBurrow.Bistro
 
                     if (_resting)
                     {
-                        MoveTowards(restSpot, dt); // 走到沙发后趴着不动
+                        if (MoveTowards(restSpot, dt) && _spine != null)
+                            SetSpineAnim("Sleep"); // 走到沙发后睡觉（基建 Sleep 动作）
                     }
                     else
                     {
@@ -99,9 +107,24 @@ namespace BistroBurrow.Bistro
             Vector3 next = Vector3.MoveTowards(pos, new Vector3(target.x, target.y, pos.z), WalkSpeed * dt);
             transform.position = next;
             bool arrived = Vector2.Distance(next, target) < 0.03f;
-            if (_body != null && !arrived)
+            if (_spine != null)
+            {
+                SetSpineAnim(arrived ? "Relax" : "Move");
+                if (!arrived && Mathf.Abs(next.x - pos.x) > 1e-5f)
+                    _spine.Skeleton.FlipX = next.x < pos.x; // 小人默认朝右，向左走时镜像
+            }
+            else if (_body != null && !arrived)
+            {
                 _body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(Time.time * 8f)) * 0.06f, 0f);
+            }
             return arrived;
+        }
+
+        void SetSpineAnim(string anim)
+        {
+            if (_spineAnim == anim) return;
+            SpineActor.PlayIfExists(_spine, anim, true); // 缺该动画时内部兜底，不会僵住
+            _spineAnim = anim;
         }
 
         void BuildVisual(StaffDef def)
@@ -119,8 +142,11 @@ namespace BistroBurrow.Bistro
             if (!string.IsNullOrEmpty(def.look) && def.look.StartsWith("spine:"))
             {
                 string skel = def.look.Substring("spine:".Length);
-                if (SpineActor.Spawn(skel, _body, Vector2.zero, "idle", true, 20) != null)
+                // 0.75：方舟基建小人原始 ~2.1m，缩到 ~1.6m 与拼装角色/店面比例一致，名牌(1.95m)不被挡
+                _spine = SpineActor.Spawn(skel, _body, Vector2.zero, "Relax", true, 20, 0.75f);
+                if (_spine != null)
                 {
+                    _spineAnim = "Relax";
                     BuildNameTag(def);
                     BuildSleepTag();
                     return;

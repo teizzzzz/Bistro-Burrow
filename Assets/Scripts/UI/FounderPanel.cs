@@ -206,7 +206,8 @@ namespace BistroBurrow.UI
                 displayName = $"{name}（创始伙伴）",
                 shortName = name,
                 role = _role,
-                look = _role == "Cook" ? "chef" : "adventurer",
+                // 创始伙伴用 Spine 小人：帮厨=白面鸮 / 采集员=安洁莉娜（资产缺失时 StaffAgent 自动回退拼装造型）
+                look = _role == "Cook" ? "spine:ak_plosis" : "spine:ak_aglina",
                 dailyWage = Wage(),
                 hireCost = 0,
                 colorHex = ColorOptions[_colorIdx],
